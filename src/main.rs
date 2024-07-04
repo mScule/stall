@@ -155,7 +155,7 @@ fn main() {
 
     let duration = start_time.elapsed();
 
-    println!("Iterations: {}", i);
-    println!("Time elapsed: {:?}", duration);
+    println!("Iterations:\t{}", i);
+    println!("Time elapsed:\t{:?}", duration);
     vm.dump_vals();
 }
