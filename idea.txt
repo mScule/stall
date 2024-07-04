@@ -1,0 +1,5 @@
+10
+20
+30
+func { add add return }
+func { start_scope def_var def_var get_var 0 0 get_var 0 1 add add end_scope return }
