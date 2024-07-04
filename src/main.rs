@@ -1,7 +1,7 @@
 mod collections;
 
 use collections::Stack;
-use std::collections::HashMap;
+use std::{collections::HashMap, time::Instant};
 
 #[derive(Clone)]
 enum Op {
@@ -58,7 +58,13 @@ impl Call {
     }
 }
 
+enum Status {
+    Run,
+    End,
+}
+
 struct VM {
+    status: Status,
     mods: HashMap<String, Vec<Val>>,
     calls: Stack<Call>,
     vals: Stack<Val>,
@@ -75,30 +81,31 @@ impl VM {
         println!("]");
     }
     fn eval(&mut self) {
-        let VM { mods, calls, vals } = self;
-
-        println!("calls: {}", calls.len());
-        let call = calls.peek_last_mut().unwrap();
+        let call = self.calls.peek_last_mut().unwrap();
         let op = call.next().unwrap();
 
         match op {
-            Op::GetConst(id, index) => match mods.get(id) {
+            Op::GetConst(id, index) => match self.mods.get(id) {
                 Some(consts) => match consts.get(*index) {
-                    Some(val) => vals.push(val.clone()),
+                    Some(val) => self.vals.push(val.clone()),
                     _ => panic!("Panic: Get const index"),
                 },
                 _ => panic!("Panic: Get const mod"),
             },
-            Op::Add => match BinOp(vals.pop(), vals.pop()) {
-                BinOp(Some(Val::I64(a)), Some(Val::I64(b))) => vals.push(Val::I64(a + b)),
+            Op::Add => match BinOp(self.vals.pop(), self.vals.pop()) {
+                BinOp(Some(Val::I64(a)), Some(Val::I64(b))) => self.vals.push(Val::I64(a + b)),
                 _ => panic!("Panic: Add"),
             },
-            Op::Call => match vals.pop() {
-                Some(Val::Ref(Ref::Func(func))) => calls.push(Call::from(func)),
+            Op::Call => match self.vals.pop() {
+                Some(Val::Ref(Ref::Func(func))) => self.calls.push(Call::from(func)),
                 _ => panic!("Panic: Call"),
             },
             Op::Return => {
-                calls.pop();
+                self.calls.pop();
+
+                if self.calls.len() == 0 {
+                    self.status = Status::End;
+                }
             }
         }
     }
@@ -106,6 +113,7 @@ impl VM {
 
 fn main() {
     let mut vm = VM {
+        status: Status::Run,
         mods: HashMap::from([(
             String::from("main"),
             Vec::from([
@@ -114,7 +122,7 @@ fn main() {
                 Val::I64(10),
                 Val::I64(20),
                 Val::Ref(Ref::Func(Vec::from([Op::Add, Op::Add, Op::Return]))),
-                Val::Ref(Ref::Func(Vec::from([Op::Add, Op::Return])))
+                Val::Ref(Ref::Func(Vec::from([Op::Add, Op::Return]))),
             ]),
         )]),
         calls: Stack::from(Vec::from([Call::from(Vec::from([
@@ -126,13 +134,28 @@ fn main() {
             Op::Call,
             Op::GetConst(String::from("main"), 5),
             Op::Call,
-            Op::Return
+            Op::Return,
         ]))])),
         vals: Stack::new(),
     };
 
-    for _ in 0..14 {
-        vm.eval();
-        vm.dump_vals();
+    let start_time = Instant::now();
+
+    let mut i = 1;
+
+    loop {
+        i += 1;
+        match vm.status {
+            Status::Run => vm.eval(),
+            _ => {
+                break;
+            }
+        }
     }
+
+    let duration = start_time.elapsed();
+
+    println!("Iterations: {}", i);
+    println!("Time elapsed: {:?}", duration);
+    vm.dump_vals();
 }
