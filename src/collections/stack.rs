@@ -15,8 +15,8 @@ impl<T> Stack<T> {
     pub fn pop(&mut self) -> Option<T> {
         self.vec.pop()
     }
-    pub fn peek_last(&self) -> Option<&T> {
-        self.vec.first()
+    pub fn peek_mut(&mut self, index: usize) -> Option<&mut T> {
+        self.vec.get_mut(index)
     }
     pub fn peek_last_mut(&mut self) -> Option<&mut T> {
         self.vec.last_mut()

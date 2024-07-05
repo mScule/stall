@@ -6,9 +6,18 @@ use std::{collections::HashMap, time::Instant};
 #[derive(Clone)]
 enum Op {
     GetConst(String, usize),
+    DefVar,
+    SetVar(usize, usize),
+    GetVar(usize, usize),
     Add,
     Call,
     Return,
+    GoTo(usize),
+    IfTrueGoTo(usize),
+    Gte,
+    Lte,
+    Gt,
+    Lt,
 }
 
 #[derive(Clone)]
@@ -66,6 +75,7 @@ enum Status {
 struct VM {
     status: Status,
     mods: HashMap<String, Vec<Val>>,
+    scopes: Stack<Vec<Val>>,
     calls: Stack<Call>,
     vals: Stack<Val>,
 }
@@ -82,23 +92,76 @@ impl VM {
     }
     fn eval(&mut self) {
         let call = self.calls.peek_last_mut().unwrap();
-        let op = call.next().unwrap();
+        let op = call.next().unwrap().clone();
 
         match op {
-            Op::GetConst(id, index) => match self.mods.get(id) {
-                Some(consts) => match consts.get(*index) {
+            Op::GetConst(id, index) => match self.mods.get(&id) {
+                Some(consts) => match consts.get(index) {
                     Some(val) => self.vals.push(val.clone()),
                     _ => panic!("Panic: Get const index"),
                 },
                 _ => panic!("Panic: Get const mod"),
             },
+            Op::DefVar => match self.vals.pop() {
+                Some(val) => {
+                    let scope = self.scopes.peek_last_mut().unwrap();
+                    scope.push(val);
+                }
+                _ => panic!("Panic: Def var"),
+            },
+            Op::SetVar(offset, index) => match self.vals.pop() {
+                Some(val) => {
+                    let scope = self
+                        .scopes
+                        .peek_mut(self.scopes.len() - 1 - offset)
+                        .unwrap();
+
+                    scope[index] = val;
+                }
+                _ => panic!("Panic: Set var"),
+            },
+            Op::GetVar(offset, index) => match self.scopes.peek_mut(self.scopes.len() - 1 - offset)
+            {
+                Some(vars) => match vars.get(index) {
+                    Some(val) => self.vals.push(val.clone()),
+                    _ => panic!("Panic: Get var - Bad index"),
+                },
+                _ => panic!("Panic: Get var - Bad offset"),
+            },
             Op::Add => match BinOp(self.vals.pop(), self.vals.pop()) {
                 BinOp(Some(Val::I64(a)), Some(Val::I64(b))) => self.vals.push(Val::I64(a + b)),
                 _ => panic!("Panic: Add"),
             },
+            Op::Gte => match BinOp(self.vals.pop(), self.vals.pop()) {
+                BinOp(Some(Val::I64(a)), Some(Val::I64(b))) => self.vals.push(Val::Bool(a >= b)),
+                _ => panic!("Panic: Gte"),
+            },
+            Op::Lte => match BinOp(self.vals.pop(), self.vals.pop()) {
+                BinOp(Some(Val::I64(a)), Some(Val::I64(b))) => self.vals.push(Val::Bool(a <= b)),
+                _ => panic!("Panic: Lte"),
+            },
+            Op::Gt => match BinOp(self.vals.pop(), self.vals.pop()) {
+                BinOp(Some(Val::I64(a)), Some(Val::I64(b))) => self.vals.push(Val::Bool(a > b)),
+                _ => panic!("Panic: Gt"),
+            },
+            Op::Lt => match BinOp(self.vals.pop(), self.vals.pop()) {
+                BinOp(Some(Val::I64(a)), Some(Val::I64(b))) => self.vals.push(Val::Bool(a < b)),
+                _ => panic!("Panic: Lt"),
+            },
             Op::Call => match self.vals.pop() {
                 Some(Val::Ref(Ref::Func(func))) => self.calls.push(Call::from(func)),
                 _ => panic!("Panic: Call"),
+            },
+            Op::GoTo(amt) => {
+                call.pc = amt;
+            }
+            Op::IfTrueGoTo(amt) => match self.vals.pop() {
+                Some(Val::Bool(cond)) => {
+                    if cond {
+                        call.pc = amt;
+                    }
+                }
+                _ => panic!("Panic: Jump if true"),
             },
             Op::Return => {
                 self.calls.pop();
@@ -116,31 +179,27 @@ fn main() {
         status: Status::Run,
         mods: HashMap::from([(
             String::from("main"),
-            Vec::from([
-                Val::I64(10),
-                Val::I64(20),
-                Val::I64(10),
-                Val::I64(20),
-                Val::Ref(Ref::Func(Vec::from([Op::Add, Op::Add, Op::Return]))),
-                Val::Ref(Ref::Func(Vec::from([Op::Add, Op::Return]))),
-            ]),
+            Vec::from([Val::I64(1), Val::I64(10_000_000), Val::I64(10)]),
         )]),
+        scopes: Stack::from(Vec::from([Vec::new()])),
         calls: Stack::from(Vec::from([Call::from(Vec::from([
             Op::GetConst(String::from("main"), 0),
+            Op::DefVar,
+            Op::GetVar(0, 0),
+            Op::GetConst(String::from("main"), 0),
+            Op::Add,
+            Op::SetVar(0, 0),
             Op::GetConst(String::from("main"), 1),
-            Op::GetConst(String::from("main"), 2),
-            Op::GetConst(String::from("main"), 3),
-            Op::GetConst(String::from("main"), 4),
-            Op::Call,
-            Op::GetConst(String::from("main"), 5),
-            Op::Call,
+            Op::GetVar(0, 0),
+            Op::Lt,
+            Op::IfTrueGoTo(2),
+            Op::GetVar(0, 0),
             Op::Return,
         ]))])),
         vals: Stack::new(),
     };
 
     let start_time = Instant::now();
-
     let mut i = 1;
 
     loop {
@@ -155,7 +214,7 @@ fn main() {
 
     let duration = start_time.elapsed();
 
+    vm.dump_vals();
     println!("Iterations:\t{}", i);
     println!("Time elapsed:\t{:?}", duration);
-    vm.dump_vals();
 }
