@@ -6,18 +6,38 @@ use std::{collections::HashMap, time::Instant};
 #[derive(Clone)]
 enum Op {
     GetConst(String, usize),
+    // Variables
+    StartScope,
+    EndScope,
     DefVar,
     SetVar(usize, usize),
     GetVar(usize, usize),
+    // ALU
     Add,
+    Sub,
+    Mul,
+    Div,
+    // String
+    Concat,
+    // Functions
     Call,
     Return,
+    // Jumping
     GoTo(usize),
     IfTrueGoTo(usize),
+    IfFalseGoTo(usize),
+    // Comparison
     Gte,
     Lte,
     Gt,
     Lt,
+    // Equality
+    Eq,
+    Not,
+    // "Casting"
+    ToI64,
+    ToF64,
+    ToString,
 }
 
 #[derive(Clone)]
@@ -31,10 +51,16 @@ enum Val {
 impl Val {
     fn to_string(&self) -> String {
         match self {
-            Self::Bool(bool) => format!("Bool({})", if *bool { "true" } else { "false" }),
-            Self::I64(i64) => format!("I64({})", i64),
-            Self::F64(f64) => format!("F64({})", f64),
-            Self::Ref(_) => format!("Ref"),
+            Self::Bool(bool) => format!("{}", if *bool { "true" } else { "false" }),
+            Self::I64(i64) => format!("{}", i64),
+            Self::F64(f64) => format!("{}", f64),
+            Self::Ref(val_ref) => match val_ref {
+                Ref::None => format!("none"),
+                Ref::String(val) => format!("{}", val),
+                Ref::Vec(val) => format!("vec[{}]", val.len()),
+                Ref::HashMap(val) => format!("hashmap[{} entries]", val.len()),
+                Ref::Func(val) => format!("func[{} ops]", val.len()),
+            },
         }
     }
 }
@@ -83,11 +109,40 @@ struct VM {
 struct BinOp<T>(T, T);
 
 impl VM {
+    pub fn new(mods: HashMap<String, Vec<Val>>, main: Func) -> Self {
+        Self {
+            status: Status::Run,
+            mods,
+            scopes: Stack::from(Vec::from([Vec::new()])),
+            calls: Stack::from(Vec::from([Call::from(main)])),
+            vals: Stack::new(),
+        }
+    }
+    pub fn run(&mut self) {
+        let start_time = Instant::now();
+        let mut i = 1;
+
+        loop {
+            i += 1;
+            match self.status {
+                Status::Run => self.eval(),
+                _ => {
+                    break;
+                }
+            }
+        }
+
+        let duration = start_time.elapsed();
+
+        self.dump_vals();
+        println!("Iterations:\t{}", i);
+        println!("Time elapsed:\t{:?}", duration);
+    }
     fn dump_vals(&self) {
         let vals = &self.vals;
 
-        println!("vals: [");
-        vals.for_each(|val| println!("\t{}", val.to_string()));
+        print!("vals: [ ");
+        vals.for_each(|val| print!("({}) ", val.to_string()));
         println!("]");
     }
     fn eval(&mut self) {
@@ -95,6 +150,12 @@ impl VM {
         let op = call.next().unwrap().clone();
 
         match op {
+            Op::StartScope => {
+                self.scopes.push(Vec::new());
+            }
+            Op::EndScope => {
+                self.scopes.pop();
+            }
             Op::GetConst(id, index) => match self.mods.get(&id) {
                 Some(consts) => match consts.get(index) {
                     Some(val) => self.vals.push(val.clone()),
@@ -132,6 +193,26 @@ impl VM {
                 BinOp(Some(Val::I64(a)), Some(Val::I64(b))) => self.vals.push(Val::I64(a + b)),
                 _ => panic!("Panic: Add"),
             },
+            Op::Sub => match BinOp(self.vals.pop(), self.vals.pop()) {
+                BinOp(Some(Val::I64(a)), Some(Val::I64(b))) => self.vals.push(Val::I64(a - b)),
+                _ => panic!("Panic: Add"),
+            },
+            Op::Mul => match BinOp(self.vals.pop(), self.vals.pop()) {
+                BinOp(Some(Val::I64(a)), Some(Val::I64(b))) => self.vals.push(Val::I64(a * b)),
+                _ => panic!("Panic: Add"),
+            },
+            Op::Div => match BinOp(self.vals.pop(), self.vals.pop()) {
+                BinOp(Some(Val::I64(a)), Some(Val::I64(b))) => self.vals.push(Val::I64(a / b)),
+                _ => panic!("Panic: Add"),
+            },
+            Op::Concat => match BinOp(self.vals.pop(), self.vals.pop()) {
+                BinOp(Some(Val::Ref(Ref::String(a))), Some(Val::Ref(Ref::String(b)))) => {
+                    let mut new = a.clone();
+                    new.push_str(&b);
+                    self.vals.push(Val::Ref(Ref::String(new)));
+                }
+                _ => panic!("Panic: Concat"),
+            },
             Op::Gte => match BinOp(self.vals.pop(), self.vals.pop()) {
                 BinOp(Some(Val::I64(a)), Some(Val::I64(b))) => self.vals.push(Val::Bool(a >= b)),
                 _ => panic!("Panic: Gte"),
@@ -155,13 +236,21 @@ impl VM {
             Op::GoTo(amt) => {
                 call.pc = amt;
             }
-            Op::IfTrueGoTo(amt) => match self.vals.pop() {
+            Op::IfTrueGoTo(i) => match self.vals.pop() {
                 Some(Val::Bool(cond)) => {
                     if cond {
-                        call.pc = amt;
+                        call.pc = i;
                     }
                 }
-                _ => panic!("Panic: Jump if true"),
+                _ => panic!("Panic: If true go to"),
+            },
+            Op::IfFalseGoTo(i) => match self.vals.pop() {
+                Some(Val::Bool(cond)) => {
+                    if !cond {
+                        call.pc = i;
+                    }
+                }
+                _ => panic!("Panic: If false go to"),
             },
             Op::Return => {
                 self.calls.pop();
@@ -170,51 +259,99 @@ impl VM {
                     self.status = Status::End;
                 }
             }
+            Op::Eq => match BinOp(self.vals.pop(), self.vals.pop()) {
+                BinOp(Some(Val::I64(a)), Some(Val::I64(b))) => self.vals.push(Val::Bool(a == b)),
+                _ => panic!("Panic: Eq"),
+            },
+            Op::Not => match self.vals.pop() {
+                Some(Val::Bool(val)) => self.vals.push(Val::Bool(!val)),
+                _ => panic!("Panic: Not"),
+            },
+            Op::ToI64 => match self.vals.pop() {
+                Some(Val::F64(val)) => self.vals.push(Val::I64(val.floor() as i64)),
+                Some(Val::Ref(Ref::String(val))) => match val.parse::<i64>() {
+                    Ok(val) => self.vals.push(Val::I64(val)),
+                    _ => panic!("Panic: ToI64 - String"),
+                },
+                _ => panic!("Panic: ToI64"),
+            },
+            Op::ToF64 => match self.vals.pop() {
+                Some(Val::I64(val)) => self.vals.push(Val::I64(val as i64)),
+                Some(Val::Ref(Ref::String(val))) => match val.parse::<f64>() {
+                    Ok(val) => self.vals.push(Val::F64(val)),
+                    _ => panic!("Panic: ToI64 - String"),
+                },
+                _ => panic!("Panic: ToI64"),
+            },
+            Op::ToString => match self.vals.pop() {
+                Some(val) => self.vals.push(Val::Ref(Ref::String(val.to_string()))),
+                _ => panic!("Panic: ToString"),
+            },
         }
     }
 }
 
 fn main() {
-    let mut vm = VM {
-        status: Status::Run,
-        mods: HashMap::from([(
+    let mut vm = VM::new(
+        HashMap::from([(
             String::from("main"),
-            Vec::from([Val::I64(1), Val::I64(10_000_000), Val::I64(10)]),
+            Vec::from([
+                Val::Ref(Ref::None),
+
+                Val::Ref(Ref::String(String::from("Jack"))),
+                Val::I64(18),
+
+                Val::I64(18),
+                Val::Ref(Ref::String(String::from("Hello "))),
+                Val::Ref(Ref::String(String::from(". Welcome in!"))),
+                Val::Ref(Ref::String(String::from("Wait for "))),
+                Val::Ref(Ref::String(String::from(" years"))),
+            ]),
         )]),
-        scopes: Stack::from(Vec::from([Vec::new()])),
-        calls: Stack::from(Vec::from([Call::from(Vec::from([
+        Vec::from([
+            // let msg = null
             Op::GetConst(String::from("main"), 0),
             Op::DefVar,
-            Op::GetVar(0, 0),
-            Op::GetConst(String::from("main"), 0),
-            Op::Add,
-            Op::SetVar(0, 0),
-            Op::GetConst(String::from("main"), 1),
-            Op::GetVar(0, 0),
+
+            // if 5 < 18 {
+            Op::GetConst(String::from("main"), 3),
+            Op::GetConst(String::from("main"), 2),
             Op::Lt,
-            Op::IfTrueGoTo(2),
+            Op::IfFalseGoTo(18),
+            Op::StartScope,
+
+                // msg = "Wait for " + 18 - 5 + " years";
+                Op::GetConst(String::from("main"), 7),
+                Op::GetConst(String::from("main"), 2),
+                Op::GetConst(String::from("main"), 3),
+                Op::Sub,
+                Op::ToString,
+                Op::GetConst(String::from("main"), 6),
+                Op::Concat,
+                Op::Concat,
+                Op::SetVar(1, 0),
+
+            // } else {
+            Op::EndScope,
+            Op::GoTo(26),
+            Op::StartScope,
+
+                // msg = "Hello" + "Jack" + ". Welcome in!";
+                Op::GetConst(String::from("main"), 5),
+                Op::GetConst(String::from("main"), 1),
+                Op::GetConst(String::from("main"), 4),
+                Op::Concat,
+                Op::Concat,
+                Op::SetVar(1, 0),
+
+            // }
+            Op::EndScope,
+
+            // msg;
             Op::GetVar(0, 0),
             Op::Return,
-        ]))])),
-        vals: Stack::new(),
-    };
+        ]),
+    );
 
-    let start_time = Instant::now();
-    let mut i = 1;
-
-    loop {
-        i += 1;
-        match vm.status {
-            Status::Run => vm.eval(),
-            _ => {
-                break;
-            }
-        }
-    }
-
-    let duration = start_time.elapsed();
-
-    vm.dump_vals();
-    println!("Iterations:\t{}", i);
-    println!("Time elapsed:\t{:?}", duration);
+    vm.run();
 }

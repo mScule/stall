@@ -1,9 +1,14 @@
-let i = 0;
-
 const start = performance.now();
-while (i < 10_000_000_000) {
-    i++;
+
+let msg = null;
+if (18 < 18) {
+    msg = "Wait for " + (18 - 18) + " years";
+} else {
+    msg = "Hello " + "Jack" + ". Welcome in!";
 }
+msg;
+
 const end = performance.now();
+
 console.log(`Time: ${((end - start) * 1000).toFixed(3)}µs`);
-console.log(i);
+console.log(msg);
