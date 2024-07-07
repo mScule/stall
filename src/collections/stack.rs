@@ -7,7 +7,7 @@ impl<T> Stack<T> {
         Self { vec: Vec::new() }
     }
     pub fn from(vec: Vec<T>) -> Self {
-        Self { vec: Vec::from(vec) }
+        Self { vec }
     }
     pub fn push(&mut self, value: T) {
         self.vec.push(value);
