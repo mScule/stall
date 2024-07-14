@@ -45,10 +45,15 @@ enum Op {
 
 #[derive(Clone)]
 enum Val {
+    None,
     Bool(bool),
     I64(i64),
     F64(f64),
-    Ref(Ref),
+    String(String),
+    Vec(Vec<Val>),
+    HashMap(HashMap<Val, Val>),
+    Func(Func),
+    //Closure()
 }
 
 impl Val {
@@ -57,24 +62,13 @@ impl Val {
             Self::Bool(bool) => String::from(if *bool { "true" } else { "false" }),
             Self::I64(i64) => i64.to_string(),
             Self::F64(f64) => f64.to_string(),
-            Self::Ref(val_ref) => match val_ref {
-                Ref::None => String::from("none"),
-                Ref::String(val) => val.to_string(),
-                Ref::Vec(val) => format!("vec[{}]", val.len()),
-                Ref::HashMap(val) => format!("hashmap[{}]", val.len()),
-                Ref::Func(val) => format!("func[{}]", val.len()),
-            },
+            Self::None => String::from("none"),
+            Self::String(val) => val.to_string(),
+            Self::Vec(val) => format!("vec@{:p}", val),
+            Self::HashMap(val) => format!("hashmap@{:p}", val),
+            Self::Func(val) => format!("func@{:p}", val),
         }
     }
-}
-
-#[derive(Clone)]
-enum Ref {
-    None,
-    String(String),
-    Vec(Vec<Val>),
-    HashMap(HashMap<Val, Val>),
-    Func(Func),
 }
 
 type Func = Vec<Op>;
@@ -214,9 +208,9 @@ impl VM {
                 _ => panic!("Panic: Add"),
             },
             Op::Concat => match BinOp(self.vals.pop(), self.vals.pop()) {
-                BinOp(Some(Val::Ref(Ref::String(mut a))), Some(Val::Ref(Ref::String(b)))) => {
+                BinOp(Some(Val::String(mut a)), Some(Val::String(b))) => {
                     a.push_str(&b);
-                    self.vals.push(Val::Ref(Ref::String(a)));
+                    self.vals.push(Val::String(a));
                 }
                 _ => panic!("Panic: Concat"),
             },
@@ -241,7 +235,7 @@ impl VM {
                 _ => panic!("Panic: Lt"),
             },
             Op::Call => match self.vals.pop() {
-                Some(Val::Ref(Ref::Func(func))) => self.calls.push(Call::from(func)),
+                Some(Val::Func(func)) => self.calls.push(Call::from(func)),
                 _ => panic!("Panic: Call"),
             },
             Op::GoTo(amt) => {
@@ -271,9 +265,9 @@ impl VM {
                 }
             }
             Op::Eq => match BinOp(self.vals.pop(), self.vals.pop()) {
-                BinOp(Some(val), Some(Val::Ref(Ref::None)))
-                | BinOp(Some(Val::Ref(Ref::None)), Some(val)) => match val {
-                    Val::Ref(Ref::None) => self.vals.push(Val::Bool(true)),
+                BinOp(Some(val), Some(Val::None))
+                | BinOp(Some(Val::None), Some(val)) => match val {
+                    Val::None => self.vals.push(Val::Bool(true)),
                     _ => self.vals.push(Val::Bool(false)),
                 },
                 BinOp(Some(Val::I64(a)), Some(Val::I64(b))) => self.vals.push(Val::Bool(a == b)),
@@ -287,7 +281,7 @@ impl VM {
             },
             Op::ToI64 => match self.vals.pop() {
                 Some(Val::F64(val)) => self.vals.push(Val::I64(val.floor() as i64)),
-                Some(Val::Ref(Ref::String(val))) => match val.parse::<i64>() {
+                Some(Val::String(val)) => match val.parse::<i64>() {
                     Ok(val) => self.vals.push(Val::I64(val)),
                     _ => panic!("Panic: ToI64 - String"),
                 },
@@ -295,32 +289,32 @@ impl VM {
             },
             Op::ToF64 => match self.vals.pop() {
                 Some(Val::I64(val)) => self.vals.push(Val::I64(val as i64)),
-                Some(Val::Ref(Ref::String(val))) => match val.parse::<f64>() {
+                Some(Val::String(val)) => match val.parse::<f64>() {
                     Ok(val) => self.vals.push(Val::F64(val)),
                     _ => panic!("Panic: ToI64 - String"),
                 },
                 _ => panic!("Panic: ToI64"),
             },
             Op::ToString => match self.vals.pop() {
-                Some(val) => self.vals.push(Val::Ref(Ref::String(val.to_string()))),
+                Some(val) => self.vals.push(Val::String(val.to_string())),
                 _ => panic!("Panic: ToString"),
             },
             Op::Push => match BinOp(self.vals.pop(), self.vals.pop()) {
-                BinOp(Some(Val::Ref(Ref::Vec(mut vec))), Some(val)) => {
+                BinOp(Some(Val::Vec(mut vec)), Some(val)) => {
                     vec.push(val);
-                    self.vals.push(Val::Ref(Ref::Vec(vec)));
-                },
+                    self.vals.push(Val::Vec(vec));
+                }
                 _ => panic!("Panic: Push"),
             },
             Op::SetIndex => match TerOp(self.vals.pop(), self.vals.pop(), self.vals.pop()) {
-                TerOp(Some(Val::Ref(Ref::Vec(mut vec))), Some(Val::I64(index)), Some(val)) => {
+                TerOp(Some(Val::Vec(mut vec)), Some(Val::I64(index)), Some(val)) => {
                     vec[index as usize] = val;
-                    self.vals.push(Val::Ref(Ref::Vec(vec)));
+                    self.vals.push(Val::Vec(vec));
                 }
                 _ => panic!("Panic: SetIndex"),
             },
             Op::GetIndex => match BinOp(self.vals.pop(), self.vals.pop()) {
-                BinOp(Some(Val::Ref(Ref::Vec(vec))), Some(Val::I64(index))) => {
+                BinOp(Some(Val::Vec(vec)), Some(Val::I64(index))) => {
                     match vec.get(index as usize) {
                         Some(val) => self.vals.push(val.clone()),
                         _ => panic!("Panic: GetIndex - Bad index"),
@@ -337,19 +331,16 @@ fn main() {
         vec![vec![
             Val::I64(0),
             Val::I64(1),
-            Val::Ref(Ref::Vec(vec![Val::I64(10), Val::F64(20.40)])),
-            Val::Ref(Ref::String(String::from("Hello there"))),
+            Val::Vec(vec![Val::I64(10), Val::F64(20.40)]),
+            Val::String("Hello there".to_string()),
         ]],
         Vec::from([
             Op::GetConst(0, 1),
-
             Op::GetConst(0, 3),
             Op::GetConst(0, 1),
             Op::GetConst(0, 2),
             Op::SetIndex,
-
             Op::GetIndex,
-
             Op::Return,
         ]),
     );
