@@ -52,8 +52,7 @@ enum Val {
     String(String),
     Vec(Vec<Val>),
     HashMap(HashMap<Val, Val>),
-    Func(Func),
-    //Closure()
+    Func(Func)
 }
 
 impl Val {
