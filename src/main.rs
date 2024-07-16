@@ -1,6 +1,8 @@
 mod collections;
+mod iterators;
 
 use collections::Stack;
+use iterators::Tokenizer;
 use std::{collections::HashMap, time::Instant};
 
 #[derive(Clone)]
@@ -345,4 +347,23 @@ fn main() {
     );
 
     vm.run();
+
+    /*
+        ? Simple program that counts two values together ?
+
+        10_000i;
+        20_000f;
+
+        func
+        | get_const: $cur, 0
+        | get_const: $cur, 1
+        | add
+        | add;
+     */
+    let input = "? Simple program that counts two values together ?\n\n10_000i;\n20_000f;\nfunc\n| get_const: $cur, 0\n| get_const: $cur, 1\n| add\n| add;\n".to_string();
+    let tokenizer = Tokenizer::from(&input);
+
+    for token in tokenizer {
+        println!("- {:?}", token);
+    }
 }
