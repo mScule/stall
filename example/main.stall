@@ -1,0 +1,4 @@
+func {
+    const "src/hello" 1
+    call return
+}

@@ -14,11 +14,8 @@ fn is_letter(ch: &char) -> bool {
 
 #[derive(Debug)]
 pub enum Token {
-    Dollar, // $
-    Pipe,   // |
-    Colon,  // :
-    Comma,  // ,
-    Semi,   // ;
+    OBracket, // {
+    CBracket, // }
     Word(String),
     Number(String),
     String(String),
@@ -36,19 +33,19 @@ impl<'a> Tokenizer<'a> {
     }
 
     fn skip_comment(&mut self) {
-        // Discard starting ?
+        // Discard starting |
         self.chars.next();
 
         loop {
             match self.chars.peek() {
-                Some('?') => break,
+                Some('|') | Some('\n') => break,
                 None => panic!("Unclosed comment"),
                 _ => (),
             }
             self.chars.next();
         }
 
-        // Discard ending ?
+        // Discard ending | or \n
         self.chars.next();
     }
 
@@ -81,21 +78,28 @@ impl<'a> Tokenizer<'a> {
     fn build_number(&mut self) -> String {
         let mut num = String::new();
         let mut is_fraction = false;
+        let mut is_signed = false;
 
         loop {
             match self.chars.peek() {
-                Some(ch) if is_num(ch) => {
-                    num.push(*ch)
+                Some(ch) if is_num(ch) => num.push(*ch),
+                Some('-') => {
+                    if is_signed {
+                        break;
+                    }
+
+                    num.push('-');
+                    is_signed = true;
                 }
                 Some('.') => {
                     if is_fraction {
-                        panic!("Number has already fraction part");
+                        panic!("Number has already fractional part");
                     }
 
                     num.push('.');
                     is_fraction = true;
                 }
-                Some('_') => {}
+                Some('_') => (),
                 _ => break,
             }
 
@@ -149,37 +153,25 @@ impl<'a> Iterator for Tokenizer<'a> {
         loop {
             match self.chars.peek() {
                 Some(ch) if is_blank(ch) => self.skip_blanks(),
-                Some('?') => self.skip_comment(),
+                Some('|') => self.skip_comment(),
                 _ => break,
             }
         }
 
         match self.chars.peek() {
-            Some('$') => {
+            Some('{') => {
                 self.chars.next();
-                Some(Token::Dollar)
+                Some(Token::OBracket)
             }
-            Some('|') => {
+            Some('}') => {
                 self.chars.next();
-                Some(Token::Pipe)
-            }
-            Some(':') => {
-                self.chars.next();
-                Some(Token::Colon)
-            }
-            Some(',') => {
-                self.chars.next();
-                Some(Token::Comma)
-            }
-            Some(';') => {
-                self.chars.next();
-                Some(Token::Semi)
+                Some(Token::CBracket)
             }
             Some('"') => Some(Token::String(self.build_string())),
-            Some(ch) if is_num(ch) => Some(Token::Number(self.build_number())),
+            Some(ch) if is_num(ch) || *ch == '-' => Some(Token::Number(self.build_number())),
             Some(ch) if is_letter(ch) || *ch == '_' => Some(Token::Word(self.build_word())),
             Some(ch) => panic!("Unsupported character \"{}\"", ch),
-            None => None
+            None => None,
         }
     }
 }

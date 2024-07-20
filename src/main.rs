@@ -2,7 +2,7 @@ mod collections;
 mod iterators;
 
 use collections::Stack;
-use iterators::Tokenizer;
+use iterators::{Tokenizer, Parser};
 use std::{collections::HashMap, time::Instant};
 
 #[derive(Clone)]
@@ -196,17 +196,17 @@ impl VM {
             Op::Sub => match BinOp(self.vals.pop(), self.vals.pop()) {
                 BinOp(Some(Val::I64(a)), Some(Val::I64(b))) => self.vals.push(Val::I64(a - b)),
                 BinOp(Some(Val::F64(a)), Some(Val::F64(b))) => self.vals.push(Val::F64(a - b)),
-                _ => panic!("Panic: Add"),
+                _ => panic!("Panic: Sub"),
             },
             Op::Mul => match BinOp(self.vals.pop(), self.vals.pop()) {
                 BinOp(Some(Val::I64(a)), Some(Val::I64(b))) => self.vals.push(Val::I64(a * b)),
                 BinOp(Some(Val::F64(a)), Some(Val::F64(b))) => self.vals.push(Val::F64(a * b)),
-                _ => panic!("Panic: Add"),
+                _ => panic!("Panic: Mul"),
             },
             Op::Div => match BinOp(self.vals.pop(), self.vals.pop()) {
                 BinOp(Some(Val::I64(a)), Some(Val::I64(b))) => self.vals.push(Val::I64(a / b)),
                 BinOp(Some(Val::F64(a)), Some(Val::F64(b))) => self.vals.push(Val::F64(a / b)),
-                _ => panic!("Panic: Add"),
+                _ => panic!("Panic: Div"),
             },
             Op::Concat => match BinOp(self.vals.pop(), self.vals.pop()) {
                 BinOp(Some(Val::String(mut a)), Some(Val::String(b))) => {
@@ -360,7 +360,7 @@ fn main() {
         | add
         | add;
      */
-    let input = "? Simple program that counts two values together ?\n\n10_000i;\n20_000f;\nfunc\n| get_const: $cur, 0\n| get_const: $cur, 1\n| add\n| add;\n".to_string();
+    let input = "func {\nnew_scope\nnew_var\nget_var 0 0\nsys \"print\"\nend_scope\nreturn\n}".to_string();
     let tokenizer = Tokenizer::from(&input);
 
     for token in tokenizer {

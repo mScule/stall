@@ -1,0 +1,8 @@
+func {
+    new_scope
+    new_var
+    get_var 0 0
+    sys "print"
+    end_scope
+    return
+}
