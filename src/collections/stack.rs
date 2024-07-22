@@ -33,3 +33,11 @@ impl<T> Stack<T> {
         self.vec.len()
     }
 }
+
+impl<T> Iterator for Stack<T> {
+    type Item = T;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        todo!()
+    }
+}

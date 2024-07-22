@@ -99,7 +99,11 @@ impl<'a> Parser<'a> {
                     "mul" => Op::Mul,
                     "div" => Op::Div,
                     "concat" => Op::Concat,
-                    "call" => Op::Call,
+                    "call_func" => Op::CallFunc,
+                    "call_sys" => match self.tokens.next() {
+                        Some(Token::String(key)) => Op::CallSys(key),
+                        _ => panic!("Bad operands: call_sys $1: string"),
+                    },
                     "return" => Op::Return,
                     "goto" => match self.tokens.next() {
                         Some(Token::Number(index)) => {

@@ -2,7 +2,7 @@ mod collections;
 mod iterators;
 
 use collections::Stack;
-use iterators::{Parser, Tokenizer};
+use iterators::Parser;
 use std::{collections::HashMap, time::Instant};
 
 #[derive(Clone, Debug)]
@@ -25,7 +25,8 @@ pub enum Op {
 
     Concat,
 
-    Call,
+    CallSys(String),
+    CallFunc,
     Return,
 
     GoTo(usize),
@@ -76,7 +77,9 @@ impl Val {
 }
 
 pub type Func = Vec<Op>;
-pub type Mod = Vec<Val>;
+pub type Mod<'a> = Vec<Val>;
+pub type SysFunc = fn(vm: &mut VM);
+pub type Api<'a> = HashMap<&'a str, SysFunc>;
 
 struct Call {
     pc: usize,
@@ -100,22 +103,24 @@ enum Status {
     End,
 }
 
-struct VM {
+struct VM<'a> {
     status: Status,
-    mods: Vec<Mod>,
+    mods: Vec<Mod<'a>>,
     scopes: Stack<Vec<Val>>,
     calls: Stack<Call>,
-    vals: Stack<Val>,
+    pub vals: Stack<Val>,
+    api: Api<'a>,
 }
 
-impl VM {
-    pub fn new(mods: Vec<Vec<Val>>, main: Func) -> Self {
+impl<'a> VM<'a> {
+    pub fn new(mods: Vec<Vec<Val>>, main: Func, api: Api<'a>) -> Self {
         Self {
             status: Status::Run,
             mods,
             scopes: Stack::from(Vec::from([Vec::new()])),
             calls: Stack::from(Vec::from([Call::from(main)])),
             vals: Stack::new(),
+            api,
         }
     }
     pub fn run(&mut self) {
@@ -134,16 +139,9 @@ impl VM {
 
         let duration = start_time.elapsed();
 
-        self.dump_vals();
-        println!("Iterations:\t{}", i);
-        println!("Time elapsed:\t{:?}", duration);
-    }
-    fn dump_vals(&self) {
-        let vals = &self.vals;
-
-        print!("vals: [ ");
-        vals.for_each(|val| print!("({}) ", val.to_string()));
-        println!("]");
+        println!();
+        println!("- Iterations:\t{}", i);
+        println!("- Time elapsed:\t{:?}", duration);
     }
     fn eval(&mut self) {
         let call = self.calls.peek_last_mut().unwrap();
@@ -238,10 +236,6 @@ impl VM {
                 (Some(Val::F64(a)), Some(Val::F64(b))) => self.vals.push(Val::Bool(a < b)),
                 _ => panic!("Panic: Lt"),
             },
-            Op::Call => match self.vals.pop() {
-                Some(Val::Func(func)) => self.calls.push(Call::from(func)),
-                _ => panic!("Panic: Call"),
-            },
             Op::GoTo(amt) => {
                 call.pc = amt;
             }
@@ -260,6 +254,14 @@ impl VM {
                     }
                 }
                 _ => panic!("Panic: If false go to"),
+            },
+            Op::CallSys(key) => match self.api.get(&key.as_str()) {
+                Some(func) => func(self),
+                _ => panic!("Panic: System doesn't have following feature {}", key),
+            },
+            Op::CallFunc => match self.vals.pop() {
+                Some(Val::Func(func)) => self.calls.push(Call::from(func)),
+                _ => panic!("Panic: Call"),
             },
             Op::Return => {
                 self.calls.pop();
@@ -333,34 +335,36 @@ fn main() {
         | Example program that creates string
         | containing Hello world! 10 times
     
-        |  0 | get_const cur 2  | Define counter
-        |  1 | new_var          |
+        |  0 | get_const cur 2 | Define counter
+        |  1 | new_var         |
 
-        |  2 | get_const cur 1  | Define message
-        |  3 | new_var          |
+        |  2 | get_const cur 1 | Define message
+        |  3 | new_var         |
 
         |  4 | get_const cur 3  | Check if counter is lt 10
         |  5 | get_var 0 0      |
         |  6 | lt               |
         |  7 | if_false_goto 17 |
 
-        |  8 | get_const cur 1  | Concat string
-        |  9 | get_var 0 1      |
-        | 10 | concat           |
-        | 11 | set_var 0 1      |
+        |  8 | get_const cur 1 | Concat string
+        |  9 | get_var 0 1     |
+        | 10 | concat          |
+        | 11 | set_var 0 1     |
 
-        | 12 | get_var 0 0      | Increment counter
-        | 13 | get_const cur 2  |
-        | 14 | add              |
-        | 15 | set_var 0 0      |
+        | 12 | get_var 0 0     | Increment counter
+        | 13 | get_const cur 2 |
+        | 14 | add             |
+        | 15 | set_var 0 0     |
 
-        | 16 | goto 4           | Go back to condition
-        | 17 | get_var 0 1      | Get concatenated message
-        | 18 | return           | End program
+        | 16 | goto 4 | Go back to condition
+
+        | 17 | get_var 0 1            | Get concatenated message
+        | 18 | call_sys \"std/print\" | Call print
+        | 19 | return                 | End program
     }
     \"Hello world!\\n\"
     1i
-    10i
+    100i
     "
     .to_string();
 
@@ -369,20 +373,29 @@ fn main() {
     let mut main_mod: Mod = Vec::new();
 
     for val in parser {
-        println!("- {:?}", val);
         main_mod.push(val);
     }
 
     mods.push(main_mod);
     let main_func = match &mods[0][0] {
         Val::Func(main_func) => main_func.clone(),
-        _ => panic!("First value of main module has to be the entry point of the program")
+        _ => panic!("First value of main module has to be the entry point of the program"),
     };
 
     let mut vm = VM::new(
         mods,
         main_func,
+        HashMap::from([
+            ("std/print", std_print as SysFunc),
+        ]),
     );
 
     vm.run();
+}
+
+fn std_print(vm: &mut VM) {
+    match vm.vals.pop() {
+        Some(val) => print!("{}", val.to_string()),
+        _ => (),
+    }
 }
