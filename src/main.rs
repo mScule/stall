@@ -330,15 +330,18 @@ impl VM {
 fn main() {
     let input = "
     func {
+        | Example program that creates string
+        | containing Hello world! 10 times
+    
         |  0 | get_const cur 2  | Define counter
         |  1 | new_var          |
 
         |  2 | get_const cur 1  | Define message
         |  3 | new_var          |
 
-        |  4 | get_var 0 0      | Check if counter is gte 10
-        |  5 | get_const cur 4  |
-        |  6 | gte              |
+        |  4 | get_const cur 3  | Check if counter is gte 10
+        |  5 | get_var 0 0      |
+        |  6 | lt               |
         |  7 | if_false_goto 17 |
 
         |  8 | get_const cur 1  | Concat string
@@ -347,16 +350,15 @@ fn main() {
         | 11 | set_var 0 1      |
 
         | 12 | get_var 0 0      | Increment counter
-        | 13 | get_const cur 3  |
+        | 13 | get_const cur 2  |
         | 14 | add              |
         | 15 | set_var 0 0      |
 
-        | 16 | goto 4           | Go back to check
+        | 16 | goto 4           | Go back to condition
         | 17 | get_var 0 1      | Get concatenated message
         | 18 | return           | End program
     }
     \"Hello world!\\n\"
-    0i
     1i
     10i
     "
