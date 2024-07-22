@@ -339,7 +339,7 @@ fn main() {
         |  2 | get_const cur 1  | Define message
         |  3 | new_var          |
 
-        |  4 | get_const cur 3  | Check if counter is gte 10
+        |  4 | get_const cur 3  | Check if counter is lt 10
         |  5 | get_var 0 0      |
         |  6 | lt               |
         |  7 | if_false_goto 17 |
