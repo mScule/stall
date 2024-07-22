@@ -2,16 +2,19 @@ mod collections;
 mod iterators;
 
 use collections::Stack;
-use iterators::{Tokenizer, Parser};
+use iterators::{Parser, Tokenizer};
 use std::{collections::HashMap, time::Instant};
 
-#[derive(Clone)]
-enum Op {
+#[derive(Clone, Debug)]
+pub enum Op {
     GetConst(usize, usize),
 
-    StartScope,
+    NewVec,
+    NewHashMap,
+
+    NewScope,
     EndScope,
-    DefVar,
+    NewVar,
     SetVar(usize, usize),
     GetVar(usize, usize),
 
@@ -45,8 +48,8 @@ enum Op {
     SetIndex,
 }
 
-#[derive(Clone)]
-enum Val {
+#[derive(Clone, Debug)]
+pub enum Val {
     None,
     Bool(bool),
     I64(i64),
@@ -54,7 +57,7 @@ enum Val {
     String(String),
     Vec(Vec<Val>),
     HashMap(HashMap<Val, Val>),
-    Func(Func)
+    Func(Func),
 }
 
 impl Val {
@@ -72,7 +75,8 @@ impl Val {
     }
 }
 
-type Func = Vec<Op>;
+pub type Func = Vec<Op>;
+pub type Mod = Vec<Val>;
 
 struct Call {
     pc: usize,
@@ -98,14 +102,11 @@ enum Status {
 
 struct VM {
     status: Status,
-    mods: Vec<Vec<Val>>,
+    mods: Vec<Mod>,
     scopes: Stack<Vec<Val>>,
     calls: Stack<Call>,
     vals: Stack<Val>,
 }
-
-struct BinOp<T>(T, T);
-struct TerOp<T>(T, T, T);
 
 impl VM {
     pub fn new(mods: Vec<Vec<Val>>, main: Func) -> Self {
@@ -149,7 +150,7 @@ impl VM {
         let op = call.next().unwrap().clone();
 
         match op {
-            Op::StartScope => {
+            Op::NewScope => {
                 self.scopes.push(Vec::new());
             }
             Op::EndScope => {
@@ -162,7 +163,9 @@ impl VM {
                 },
                 _ => panic!("Panic: Get const mod"),
             },
-            Op::DefVar => match self.vals.pop() {
+            Op::NewHashMap => self.vals.push(Val::HashMap(HashMap::new())),
+            Op::NewVec => self.vals.push(Val::Vec(Vec::new())),
+            Op::NewVar => match self.vals.pop() {
                 Some(val) => {
                     let scope = self.scopes.peek_last_mut().unwrap();
                     scope.push(val);
@@ -188,51 +191,51 @@ impl VM {
                 },
                 _ => panic!("Panic: Get var - Bad offset"),
             },
-            Op::Add => match BinOp(self.vals.pop(), self.vals.pop()) {
-                BinOp(Some(Val::I64(a)), Some(Val::I64(b))) => self.vals.push(Val::I64(a + b)),
-                BinOp(Some(Val::F64(a)), Some(Val::F64(b))) => self.vals.push(Val::F64(a + b)),
+            Op::Add => match (self.vals.pop(), self.vals.pop()) {
+                (Some(Val::I64(a)), Some(Val::I64(b))) => self.vals.push(Val::I64(a + b)),
+                (Some(Val::F64(a)), Some(Val::F64(b))) => self.vals.push(Val::F64(a + b)),
                 _ => panic!("Panic: Add"),
             },
-            Op::Sub => match BinOp(self.vals.pop(), self.vals.pop()) {
-                BinOp(Some(Val::I64(a)), Some(Val::I64(b))) => self.vals.push(Val::I64(a - b)),
-                BinOp(Some(Val::F64(a)), Some(Val::F64(b))) => self.vals.push(Val::F64(a - b)),
+            Op::Sub => match (self.vals.pop(), self.vals.pop()) {
+                (Some(Val::I64(a)), Some(Val::I64(b))) => self.vals.push(Val::I64(a - b)),
+                (Some(Val::F64(a)), Some(Val::F64(b))) => self.vals.push(Val::F64(a - b)),
                 _ => panic!("Panic: Sub"),
             },
-            Op::Mul => match BinOp(self.vals.pop(), self.vals.pop()) {
-                BinOp(Some(Val::I64(a)), Some(Val::I64(b))) => self.vals.push(Val::I64(a * b)),
-                BinOp(Some(Val::F64(a)), Some(Val::F64(b))) => self.vals.push(Val::F64(a * b)),
+            Op::Mul => match (self.vals.pop(), self.vals.pop()) {
+                (Some(Val::I64(a)), Some(Val::I64(b))) => self.vals.push(Val::I64(a * b)),
+                (Some(Val::F64(a)), Some(Val::F64(b))) => self.vals.push(Val::F64(a * b)),
                 _ => panic!("Panic: Mul"),
             },
-            Op::Div => match BinOp(self.vals.pop(), self.vals.pop()) {
-                BinOp(Some(Val::I64(a)), Some(Val::I64(b))) => self.vals.push(Val::I64(a / b)),
-                BinOp(Some(Val::F64(a)), Some(Val::F64(b))) => self.vals.push(Val::F64(a / b)),
+            Op::Div => match (self.vals.pop(), self.vals.pop()) {
+                (Some(Val::I64(a)), Some(Val::I64(b))) => self.vals.push(Val::I64(a / b)),
+                (Some(Val::F64(a)), Some(Val::F64(b))) => self.vals.push(Val::F64(a / b)),
                 _ => panic!("Panic: Div"),
             },
-            Op::Concat => match BinOp(self.vals.pop(), self.vals.pop()) {
-                BinOp(Some(Val::String(mut a)), Some(Val::String(b))) => {
+            Op::Concat => match (self.vals.pop(), self.vals.pop()) {
+                (Some(Val::String(mut a)), Some(Val::String(b))) => {
                     a.push_str(&b);
                     self.vals.push(Val::String(a));
                 }
                 _ => panic!("Panic: Concat"),
             },
-            Op::Gte => match BinOp(self.vals.pop(), self.vals.pop()) {
-                BinOp(Some(Val::I64(a)), Some(Val::I64(b))) => self.vals.push(Val::Bool(a >= b)),
-                BinOp(Some(Val::F64(a)), Some(Val::F64(b))) => self.vals.push(Val::Bool(a >= b)),
+            Op::Gte => match (self.vals.pop(), self.vals.pop()) {
+                (Some(Val::I64(a)), Some(Val::I64(b))) => self.vals.push(Val::Bool(a >= b)),
+                (Some(Val::F64(a)), Some(Val::F64(b))) => self.vals.push(Val::Bool(a >= b)),
                 _ => panic!("Panic: Gte"),
             },
-            Op::Lte => match BinOp(self.vals.pop(), self.vals.pop()) {
-                BinOp(Some(Val::I64(a)), Some(Val::I64(b))) => self.vals.push(Val::Bool(a <= b)),
-                BinOp(Some(Val::F64(a)), Some(Val::F64(b))) => self.vals.push(Val::Bool(a <= b)),
+            Op::Lte => match (self.vals.pop(), self.vals.pop()) {
+                (Some(Val::I64(a)), Some(Val::I64(b))) => self.vals.push(Val::Bool(a <= b)),
+                (Some(Val::F64(a)), Some(Val::F64(b))) => self.vals.push(Val::Bool(a <= b)),
                 _ => panic!("Panic: Lte"),
             },
-            Op::Gt => match BinOp(self.vals.pop(), self.vals.pop()) {
-                BinOp(Some(Val::I64(a)), Some(Val::I64(b))) => self.vals.push(Val::Bool(a > b)),
-                BinOp(Some(Val::F64(a)), Some(Val::F64(b))) => self.vals.push(Val::Bool(a > b)),
+            Op::Gt => match (self.vals.pop(), self.vals.pop()) {
+                (Some(Val::I64(a)), Some(Val::I64(b))) => self.vals.push(Val::Bool(a > b)),
+                (Some(Val::F64(a)), Some(Val::F64(b))) => self.vals.push(Val::Bool(a > b)),
                 _ => panic!("Panic: Gt"),
             },
-            Op::Lt => match BinOp(self.vals.pop(), self.vals.pop()) {
-                BinOp(Some(Val::I64(a)), Some(Val::I64(b))) => self.vals.push(Val::Bool(a < b)),
-                BinOp(Some(Val::F64(a)), Some(Val::F64(b))) => self.vals.push(Val::Bool(a < b)),
+            Op::Lt => match (self.vals.pop(), self.vals.pop()) {
+                (Some(Val::I64(a)), Some(Val::I64(b))) => self.vals.push(Val::Bool(a < b)),
+                (Some(Val::F64(a)), Some(Val::F64(b))) => self.vals.push(Val::Bool(a < b)),
                 _ => panic!("Panic: Lt"),
             },
             Op::Call => match self.vals.pop() {
@@ -265,15 +268,14 @@ impl VM {
                     self.status = Status::End;
                 }
             }
-            Op::Eq => match BinOp(self.vals.pop(), self.vals.pop()) {
-                BinOp(Some(val), Some(Val::None))
-                | BinOp(Some(Val::None), Some(val)) => match val {
+            Op::Eq => match (self.vals.pop(), self.vals.pop()) {
+                (Some(val), Some(Val::None)) | (Some(Val::None), Some(val)) => match val {
                     Val::None => self.vals.push(Val::Bool(true)),
                     _ => self.vals.push(Val::Bool(false)),
                 },
-                BinOp(Some(Val::I64(a)), Some(Val::I64(b))) => self.vals.push(Val::Bool(a == b)),
-                BinOp(Some(Val::F64(a)), Some(Val::F64(b))) => self.vals.push(Val::Bool(a == b)),
-                BinOp(Some(Val::Bool(a)), Some(Val::Bool(b))) => self.vals.push(Val::Bool(a == b)),
+                (Some(Val::I64(a)), Some(Val::I64(b))) => self.vals.push(Val::Bool(a == b)),
+                (Some(Val::F64(a)), Some(Val::F64(b))) => self.vals.push(Val::Bool(a == b)),
+                (Some(Val::Bool(a)), Some(Val::Bool(b))) => self.vals.push(Val::Bool(a == b)),
                 _ => panic!("Panic: Eq"),
             },
             Op::Not => match self.vals.pop() {
@@ -300,27 +302,25 @@ impl VM {
                 Some(val) => self.vals.push(Val::String(val.to_string())),
                 _ => panic!("Panic: ToString"),
             },
-            Op::Push => match BinOp(self.vals.pop(), self.vals.pop()) {
-                BinOp(Some(Val::Vec(mut vec)), Some(val)) => {
+            Op::Push => match (self.vals.pop(), self.vals.pop()) {
+                (Some(Val::Vec(mut vec)), Some(val)) => {
                     vec.push(val);
                     self.vals.push(Val::Vec(vec));
                 }
                 _ => panic!("Panic: Push"),
             },
-            Op::SetIndex => match TerOp(self.vals.pop(), self.vals.pop(), self.vals.pop()) {
-                TerOp(Some(Val::Vec(mut vec)), Some(Val::I64(index)), Some(val)) => {
+            Op::SetIndex => match (self.vals.pop(), self.vals.pop(), self.vals.pop()) {
+                (Some(Val::Vec(mut vec)), Some(Val::I64(index)), Some(val)) => {
                     vec[index as usize] = val;
                     self.vals.push(Val::Vec(vec));
                 }
                 _ => panic!("Panic: SetIndex"),
             },
-            Op::GetIndex => match BinOp(self.vals.pop(), self.vals.pop()) {
-                BinOp(Some(Val::Vec(vec)), Some(Val::I64(index))) => {
-                    match vec.get(index as usize) {
-                        Some(val) => self.vals.push(val.clone()),
-                        _ => panic!("Panic: GetIndex - Bad index"),
-                    }
-                }
+            Op::GetIndex => match (self.vals.pop(), self.vals.pop()) {
+                (Some(Val::Vec(vec)), Some(Val::I64(index))) => match vec.get(index as usize) {
+                    Some(val) => self.vals.push(val.clone()),
+                    _ => panic!("Panic: GetIndex - Bad index"),
+                },
                 _ => panic!("Panic: GetIndex"),
             },
         }
@@ -328,42 +328,59 @@ impl VM {
 }
 
 fn main() {
+    let input = "
+    func {
+        |  0 | get_const cur 2  | Define counter
+        |  1 | new_var          |
+
+        |  2 | get_const cur 1  | Define message
+        |  3 | new_var          |
+
+        |  4 | get_var 0 0      | Check if counter is gte 10
+        |  5 | get_const cur 4  |
+        |  6 | gte              |
+        |  7 | if_false_goto 17 |
+
+        |  8 | get_const cur 1  | Concat string
+        |  9 | get_var 0 1      |
+        | 10 | concat           |
+        | 11 | set_var 0 1      |
+
+        | 12 | get_var 0 0      | Increment counter
+        | 13 | get_const cur 3  |
+        | 14 | add              |
+        | 15 | set_var 0 0      |
+
+        | 16 | goto 4           | Go back to check
+        | 17 | get_var 0 1      | Get concatenated message
+        | 18 | return           | End program
+    }
+    \"Hello world!\\n\"
+    0i
+    1i
+    10i
+    "
+    .to_string();
+
+    let mut mods: Vec<Mod> = Vec::new();
+    let parser = Parser::from(&input, None, &"main".to_string());
+    let mut main_mod: Mod = Vec::new();
+
+    for val in parser {
+        println!("- {:?}", val);
+        main_mod.push(val);
+    }
+
+    mods.push(main_mod);
+    let main_func = match &mods[0][0] {
+        Val::Func(main_func) => main_func.clone(),
+        _ => panic!("First value of main module has to be the entry point of the program")
+    };
+
     let mut vm = VM::new(
-        vec![vec![
-            Val::I64(0),
-            Val::I64(1),
-            Val::Vec(vec![Val::I64(10), Val::F64(20.40)]),
-            Val::String("Hello there".to_string()),
-        ]],
-        Vec::from([
-            Op::GetConst(0, 1),
-            Op::GetConst(0, 3),
-            Op::GetConst(0, 1),
-            Op::GetConst(0, 2),
-            Op::SetIndex,
-            Op::GetIndex,
-            Op::Return,
-        ]),
+        mods,
+        main_func,
     );
 
     vm.run();
-
-    /*
-        ? Simple program that counts two values together ?
-
-        10_000i;
-        20_000f;
-
-        func
-        | get_const: $cur, 0
-        | get_const: $cur, 1
-        | add
-        | add;
-     */
-    let input = "func {\nnew_scope\nnew_var\nget_var 0 0\nsys \"print\"\nend_scope\nreturn\n}".to_string();
-    let tokenizer = Tokenizer::from(&input);
-
-    for token in tokenizer {
-        println!("- {:?}", token);
-    }
 }
