@@ -3,7 +3,7 @@ mod iterators;
 
 use collections::Stack;
 use iterators::Parser;
-use std::{collections::HashMap, time::Instant};
+use std::{cell::RefCell, collections::HashMap, rc::Rc, time::Instant};
 
 #[derive(Clone, Debug)]
 pub enum Op {
@@ -18,13 +18,6 @@ pub enum Op {
     SetVar(usize, usize),
     GetVar(usize, usize),
 
-    Add,
-    Sub,
-    Mul,
-    Div,
-
-    Concat,
-
     CallSys(String),
     CallFunc,
     Return,
@@ -32,6 +25,13 @@ pub enum Op {
     GoTo(usize),
     IfTrueGoTo(usize),
     IfFalseGoTo(usize),
+
+    Add,
+    Sub,
+    Mul,
+    Div,
+
+    Concat,
 
     Gte,
     Lte,
@@ -44,9 +44,11 @@ pub enum Op {
     ToF64,
     ToString,
 
-    Push,
-    GetIndex,
-    SetIndex,
+    PushToVec,
+    GetVecVal,
+    SetVecVal,
+
+    PopVal
 }
 
 #[derive(Clone, Debug)]
@@ -56,9 +58,9 @@ pub enum Val {
     I64(i64),
     F64(f64),
     String(String),
-    Vec(Vec<Val>),
-    HashMap(HashMap<Val, Val>),
-    Func(Func),
+    Vec(Rc<RefCell<Vec<Val>>>),
+    HashMap(Rc<RefCell<HashMap<Val, Val>>>),
+    Func(Rc<Func>),
 }
 
 impl Val {
@@ -71,23 +73,23 @@ impl Val {
             Self::String(val) => val.to_string(),
             Self::Vec(val) => format!("vec@{:p}", val),
             Self::HashMap(val) => format!("hashmap@{:p}", val),
-            Self::Func(val) => format!("func@{:p}", val),
+            Self::Func(val) => format!("func@{:p}", val.as_ptr()),
         }
     }
 }
 
 pub type Func = Vec<Op>;
-pub type Mod<'a> = Vec<Val>;
+pub type Mod = Vec<Val>;
 pub type SysFunc = fn(vm: &mut VM);
-pub type Api<'a> = HashMap<&'a str, SysFunc>;
+pub type Api = HashMap<String, SysFunc>;
 
 struct Call {
     pc: usize,
-    func: Func,
+    func: Rc<Func>,
 }
 
 impl Call {
-    fn from(func: Func) -> Self {
+    fn from(func: Rc<Func>) -> Self {
         Self { pc: 0, func }
     }
     fn next(&mut self) -> Option<&Op> {
@@ -103,17 +105,17 @@ enum Status {
     End,
 }
 
-struct VM<'a> {
+pub struct VM {
     status: Status,
-    mods: Vec<Mod<'a>>,
+    mods: Vec<Mod>,
     scopes: Stack<Vec<Val>>,
     calls: Stack<Call>,
     pub vals: Stack<Val>,
-    api: Api<'a>,
+    api: Api,
 }
 
-impl<'a> VM<'a> {
-    pub fn new(mods: Vec<Vec<Val>>, main: Func, api: Api<'a>) -> Self {
+impl VM {
+    pub fn new(mods: Vec<Vec<Val>>, main: Rc<Func>, api: Api) -> Self {
         Self {
             status: Status::Run,
             mods,
@@ -125,16 +127,16 @@ impl<'a> VM<'a> {
     }
     pub fn run(&mut self) {
         let start_time = Instant::now();
-        let mut i = 1;
+        let mut i = 0;
 
         loop {
-            i += 1;
             match self.status {
                 Status::Run => self.eval(),
                 _ => {
                     break;
                 }
             }
+            i += 1;
         }
 
         let duration = start_time.elapsed();
@@ -144,8 +146,8 @@ impl<'a> VM<'a> {
         println!("- Time elapsed:\t{:?}", duration);
     }
     fn eval(&mut self) {
-        let call = self.calls.peek_last_mut().unwrap();
-        let op = call.next().unwrap().clone();
+        let call = self.calls.peek_last_mut().expect("No call found");
+        let op = call.next().expect("Cannot access OP").clone();
 
         match op {
             Op::NewScope => {
@@ -161,8 +163,10 @@ impl<'a> VM<'a> {
                 },
                 _ => panic!("Panic: Get const mod"),
             },
-            Op::NewHashMap => self.vals.push(Val::HashMap(HashMap::new())),
-            Op::NewVec => self.vals.push(Val::Vec(Vec::new())),
+            Op::NewHashMap => self
+                .vals
+                .push(Val::HashMap(Rc::new(RefCell::new(HashMap::new())))),
+            Op::NewVec => self.vals.push(Val::Vec(Rc::new(RefCell::new(Vec::new())))),
             Op::NewVar => match self.vals.pop() {
                 Some(val) => {
                     let scope = self.scopes.peek_last_mut().unwrap();
@@ -255,7 +259,7 @@ impl<'a> VM<'a> {
                 }
                 _ => panic!("Panic: If false go to"),
             },
-            Op::CallSys(key) => match self.api.get(&key.as_str()) {
+            Op::CallSys(key) => match self.api.get(&key) {
                 Some(func) => func(self),
                 _ => panic!("Panic: System doesn't have following feature {}", key),
             },
@@ -304,72 +308,71 @@ impl<'a> VM<'a> {
                 Some(val) => self.vals.push(Val::String(val.to_string())),
                 _ => panic!("Panic: ToString"),
             },
-            Op::Push => match (self.vals.pop(), self.vals.pop()) {
-                (Some(Val::Vec(mut vec)), Some(val)) => {
+            Op::PushToVec => match (self.vals.pop(), self.vals.pop()) {
+                (Some(Val::Vec(vec_ref)), Some(val)) => {
+                    let vec_ref_clone = vec_ref.clone();
+                    let mut vec = vec_ref_clone.borrow_mut();
                     vec.push(val);
-                    self.vals.push(Val::Vec(vec));
                 }
                 _ => panic!("Panic: Push"),
             },
-            Op::SetIndex => match (self.vals.pop(), self.vals.pop(), self.vals.pop()) {
-                (Some(Val::Vec(mut vec)), Some(Val::I64(index)), Some(val)) => {
+            Op::SetVecVal => match (self.vals.pop(), self.vals.pop(), self.vals.pop()) {
+                (Some(Val::Vec(vec_ref)), Some(Val::I64(index)), Some(val)) => {
+                    let vec_ref_clone = vec_ref.clone();
+                    let mut vec = vec_ref_clone.borrow_mut();
                     vec[index as usize] = val;
-                    self.vals.push(Val::Vec(vec));
                 }
                 _ => panic!("Panic: SetIndex"),
             },
-            Op::GetIndex => match (self.vals.pop(), self.vals.pop()) {
-                (Some(Val::Vec(vec)), Some(Val::I64(index))) => match vec.get(index as usize) {
-                    Some(val) => self.vals.push(val.clone()),
-                    _ => panic!("Panic: GetIndex - Bad index"),
-                },
+            Op::GetVecVal => match (self.vals.pop(), self.vals.pop()) {
+                (Some(Val::Vec(vec_ref)), Some(Val::I64(index))) => {
+                    match vec_ref.borrow().get(index as usize) {
+                        Some(val) => self.vals.push(val.clone()),
+                        _ => panic!("Panic: GetIndex - Bad index"),
+                    }
+                }
                 _ => panic!("Panic: GetIndex"),
             },
+            Op::PopVal => {
+                self.vals.pop();
+            }
         }
     }
 }
 
 fn main() {
-    let input = "
-    func {
-        | Example program that creates string
-        | containing Hello world! 10 times
-    
-        |  0 | get_const cur 2 | Define counter
-        |  1 | new_var         |
+    let vals = r#"
+func {
+    new_vec
+    new_var
 
-        |  2 | get_const cur 1 | Define message
-        |  3 | new_var         |
+    get_const cur 1
+    get_var 0 0
+    push_to_vec
 
-        |  4 | get_const cur 3  | Check if counter is lt 10
-        |  5 | get_var 0 0      |
-        |  6 | lt               |
-        |  7 | if_false_goto 17 |
+    get_const cur 2
+    get_var 0 0
+    push_to_vec
 
-        |  8 | get_const cur 1 | Concat string
-        |  9 | get_var 0 1     |
-        | 10 | concat          |
-        | 11 | set_var 0 1     |
+    get_const cur 3
+    get_const cur 4
+    get_var 0 0
+    set_vec_val
 
-        | 12 | get_var 0 0     | Increment counter
-        | 13 | get_const cur 2 |
-        | 14 | add             |
-        | 15 | set_var 0 0     |
-
-        | 16 | goto 4 | Go back to condition
-
-        | 17 | get_var 0 1            | Get concatenated message
-        | 18 | call_sys \"std/print\" | Call print
-        | 19 | return                 | End program
-    }
-    \"Hello world!\\n\"
-    1i
-    100i
-    "
+    get_var 0 0
+    call_sys "std/val_dump"
+    call_sys "std/print"
+    return
+}
+"Hello world"
+"Not!"
+"Yes"
+1i
+    "#
     .to_string();
 
     let mut mods: Vec<Mod> = Vec::new();
-    let parser = Parser::from(&input, None, &"main".to_string());
+    let parser = Parser::from(&vals, None, &"main".to_string());
     let mut main_mod: Mod = Vec::new();
 
     for val in parser {
@@ -386,7 +389,8 @@ fn main() {
         mods,
         main_func,
         HashMap::from([
-            ("std/print", std_print as SysFunc),
+            ("std/print".to_string(), std_print as SysFunc),
+            ("std/val_dump".to_string(), std_val_dump as SysFunc)
         ]),
     );
 
@@ -397,5 +401,12 @@ fn std_print(vm: &mut VM) {
     match vm.vals.pop() {
         Some(val) => print!("{}", val.to_string()),
         _ => (),
+    }
+}
+
+fn std_val_dump(vm: &mut VM) {
+    match vm.vals.pop() {
+        Some(val) => vm.vals.push(Val::String(format!("{:?}", val))),
+        _ => ()
     }
 }

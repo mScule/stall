@@ -1,0 +1,26 @@
+func {
+    new_vec
+    new_var
+
+    get_const cur 1
+    get_var 0 0
+    push_to_vec
+
+    get_const cur 2
+    get_var 0 0
+    push_to_vec
+
+    get_const cur 3
+    get_const cur 4
+    get_var 0 0
+    set_vec_val
+
+    get_var 0 0
+    call_sys "std/val_dump"
+    call_sys "std/print"
+    return
+}
+"Hello world"
+"Not!"
+"Yes"
+1i

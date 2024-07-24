@@ -1,7 +1,0 @@
-"Hello World"
-func {
-    const this 0
-    const "libs/print" 0
-    call
-    return
-}

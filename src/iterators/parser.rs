@@ -1,4 +1,4 @@
-use std::{collections::HashMap, iter::Peekable};
+use std::{collections::HashMap, iter::Peekable, rc::Rc};
 
 use crate::{iterators::Tokenizer, Func, Op, Val};
 
@@ -139,13 +139,14 @@ impl<'a> Parser<'a> {
                     "to_int" => Op::ToI64,
                     "to_float" => Op::ToF64,
                     "to_string" => Op::ToString,
-                    "push" => Op::Push,
-                    "get_index" => todo!(),
-                    "set_index" => todo!(),
+                    "push_to_vec" => Op::PushToVec,
+                    "get_vec_val" => Op::GetVecVal,
+                    "set_vec_val" => Op::SetVecVal,
+                    "pop_val" => Op::PopVal,
                     _ => panic!("Unsupported op"),
                 },
                 // End func }
-                Some(Token::CBracket) => return Val::Func(func),
+                Some(Token::CBracket) => return Val::Func(Rc::new(func)),
                 _ => panic!("Bad token"),
             });
         }
