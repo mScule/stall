@@ -1,4 +1,4 @@
-use std::{collections::HashMap, iter::Peekable, rc::Rc};
+use std::{iter::Peekable, rc::Rc};
 
 use crate::{iterators::Tokenizer, Func, Op, Val};
 
@@ -46,14 +46,17 @@ impl<'a> Parser<'a> {
         loop {
             func.push(match self.tokens.next() {
                 Some(Token::Word(op)) => match op.as_str() {
-                    "get_const" => match (self.tokens.next(), self.tokens.next()) {
+                    "none" => Op::GetInlineVal(Val::None),
+                    "true" => Op::GetInlineVal(Val::Bool(true)),
+                    "false" => Op::GetInlineVal(Val::Bool(false)),
+                    "get_mod_val" => match (self.tokens.next(), self.tokens.next()) {
                         (Some(Token::String(mod_name)), Some(Token::Number(val_index))) => {
                             let mod_index = self.get_mod_index(&mod_name);
                             let val_index = val_index
                                 .parse::<usize>()
                                 .expect("get_const $2 has to be usize");
 
-                            Op::GetConst(mod_index, val_index)
+                            Op::GetModVal(mod_index, val_index)
                         }
                         (Some(Token::Word(word)), Some(Token::Number(val_index))) => {
                             if word.as_str() != "cur" {
@@ -65,7 +68,7 @@ impl<'a> Parser<'a> {
                                 .parse::<usize>()
                                 .expect("get_const $2 has to be usize");
 
-                            Op::GetConst(mod_index, val_index)
+                            Op::GetModVal(mod_index, val_index)
                         }
                         _ => panic!("get_const $1 has to be string"),
                     },
@@ -147,6 +150,17 @@ impl<'a> Parser<'a> {
                     "pop_val" => Op::PopVal,
                     _ => panic!("Unsupported op"),
                 },
+                // Num literal
+                Some(Token::Number(num)) => match self.tokens.next() {
+                    Some(Token::Word(type_hint)) => match type_hint.as_str() {
+                        "i" => Op::GetInlineVal(Val::I64(num.parse().expect("Number has to be int"))),
+                        "f" => Op::GetInlineVal(Val::F64(num.parse().expect("Number has to be float"))),
+                        _ => panic!("Unrecognized type hint"),
+                    },
+                    _ => panic!("Unexpected EOF"),
+                },
+                // String literal
+                Some(Token::String(str)) => Op::GetInlineVal(Val::String(str)),
                 // End func }
                 Some(Token::CBracket) => return Val::Func(Rc::new(func)),
                 _ => panic!("Bad token"),

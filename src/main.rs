@@ -7,7 +7,8 @@ use std::{cell::RefCell, collections::HashMap, rc::Rc, time::Instant};
 
 #[derive(Clone, Debug)]
 pub enum Op {
-    GetConst(usize, usize),
+    GetModVal(usize, usize),
+    GetInlineVal(Val),
 
     NewVec,
     NewMap,
@@ -52,7 +53,7 @@ pub enum Op {
     GetMapVal,
     SetMapVal,
 
-    PopVal
+    PopVal,
 }
 
 #[derive(Clone, Debug)]
@@ -160,13 +161,14 @@ impl VM {
             Op::EndScope => {
                 self.scopes.pop();
             }
-            Op::GetConst(mod_index, const_index) => match self.mods.get(mod_index) {
-                Some(consts) => match consts.get(const_index) {
-                    Some(val) => self.vals.push(val.clone()),
+            Op::GetModVal(mod_index, func_index) => match self.mods.get(mod_index) {
+                Some(funcs) => match funcs.get(func_index) {
+                    Some(func) => self.vals.push(func.clone()),
                     _ => panic!("Panic: Get const index"),
                 },
                 _ => panic!("Panic: Get const mod"),
             },
+            Op::GetInlineVal(val) => self.vals.push(val.clone()),
             Op::NewMap => self
                 .vals
                 .push(Val::Map(Rc::new(RefCell::new(HashMap::new())))),
@@ -343,16 +345,16 @@ impl VM {
                     let mut map = map_ref_clone.borrow_mut();
                     map.insert(key, val);
                 }
-                _ => panic!("Panic: GetMapVal")
+                _ => panic!("Panic: GetMapVal"),
             },
             Op::GetMapVal => match (self.vals.pop(), self.vals.pop()) {
                 (Some(Val::Map(map_ref)), Some(Val::String(key))) => {
                     let map_ref_clone = map_ref.clone();
                     let map = map_ref_clone.borrow_mut();
                     self.vals.push(map[&key].clone());
-                },
-                _ => panic!("Panic: GetMapVal")
-            }
+                }
+                _ => panic!("Panic: GetMapVal"),
+            },
             Op::PopVal => {
                 self.vals.pop();
             }
@@ -362,41 +364,34 @@ impl VM {
 
 fn main() {
     let vals = r#"
-| <value>
-| <key>
-| <map_ref>
-| set_map_val
-
-| <key>
-| <map_ref>
-| get_map_val
+| A program that creates string "Name: Mike, Age: 18"
 
 func {
-    new_map         | var1 = map
-    new_var         |
+    new_map
+    new_var
 
-    get_const cur 5 | var1["name"] = "Mike"
-    get_const cur 1 |
-    get_var 0 0     |
-    set_map_val     |
+    "Mike"
+    "name"
+    get_var 0 0
+    set_map_val
 
-    get_const cur 6 | var1["age"] = 18i
-    get_const cur 2 |
-    get_var 0 0     |
-    set_map_val     |
+    18i
+    "age"
+    get_var 0 0
+    set_map_val
 
-    get_const cur 2 | var1["age"]
-    get_var 0 0     |
-    get_map_val     |
-    to_string       |
+    "age"
+    get_var 0 0
+    get_map_val
+    to_string
 
-    get_const cur 4 | " Age: "
+    ", Age: "
 
-    get_const cur 1 | var1["name"]
-    get_var 0 0     |
-    get_map_val     |
+    "name"
+    get_var 0 0
+    get_map_val
 
-    get_const cur 3 | "Name: "
+    "Name: "
 
     concat
     concat
@@ -406,15 +401,6 @@ func {
 
     return
 }
-
-"name"    | 1
-"age"     | 2
-
-"Name: "  | 3
-", Age: " | 4
-
-"Mike"    | 5
-18i       | 6
     "#
     .to_string();
 
@@ -437,7 +423,7 @@ func {
         main_func,
         HashMap::from([
             ("std/print".to_string(), std_print as SysFunc),
-            ("std/val_dump".to_string(), std_val_dump as SysFunc)
+            ("std/val_dump".to_string(), std_val_dump as SysFunc),
         ]),
     );
 
@@ -454,6 +440,6 @@ fn std_print(vm: &mut VM) {
 fn std_val_dump(vm: &mut VM) {
     match vm.vals.pop() {
         Some(val) => vm.vals.push(Val::String(format!("{:?}", val))),
-        _ => ()
+        _ => (),
     }
 }
