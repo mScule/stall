@@ -10,10 +10,11 @@ pub enum Op {
     GetConst(usize, usize),
 
     NewVec,
-    NewHashMap,
+    NewMap,
 
     NewScope,
     EndScope,
+
     NewVar,
     SetVar(usize, usize),
     GetVar(usize, usize),
@@ -48,6 +49,9 @@ pub enum Op {
     GetVecVal,
     SetVecVal,
 
+    GetMapVal,
+    SetMapVal,
+
     PopVal
 }
 
@@ -59,7 +63,7 @@ pub enum Val {
     F64(f64),
     String(String),
     Vec(Rc<RefCell<Vec<Val>>>),
-    HashMap(Rc<RefCell<HashMap<Val, Val>>>),
+    Map(Rc<RefCell<HashMap<String, Val>>>),
     Func(Rc<Func>),
 }
 
@@ -72,7 +76,7 @@ impl Val {
             Self::None => String::from("none"),
             Self::String(val) => val.to_string(),
             Self::Vec(val) => format!("vec@{:p}", val),
-            Self::HashMap(val) => format!("hashmap@{:p}", val),
+            Self::Map(val) => format!("map@{:p}", val),
             Self::Func(val) => format!("func@{:p}", val.as_ptr()),
         }
     }
@@ -163,9 +167,9 @@ impl VM {
                 },
                 _ => panic!("Panic: Get const mod"),
             },
-            Op::NewHashMap => self
+            Op::NewMap => self
                 .vals
-                .push(Val::HashMap(Rc::new(RefCell::new(HashMap::new())))),
+                .push(Val::Map(Rc::new(RefCell::new(HashMap::new())))),
             Op::NewVec => self.vals.push(Val::Vec(Rc::new(RefCell::new(Vec::new())))),
             Op::NewVar => match self.vals.pop() {
                 Some(val) => {
@@ -333,6 +337,22 @@ impl VM {
                 }
                 _ => panic!("Panic: GetIndex"),
             },
+            Op::SetMapVal => match (self.vals.pop(), self.vals.pop(), self.vals.pop()) {
+                (Some(Val::Map(map_ref)), Some(Val::String(key)), Some(val)) => {
+                    let map_ref_clone = map_ref.clone();
+                    let mut map = map_ref_clone.borrow_mut();
+                    map.insert(key, val);
+                }
+                _ => panic!("Panic: GetMapVal")
+            },
+            Op::GetMapVal => match (self.vals.pop(), self.vals.pop()) {
+                (Some(Val::Map(map_ref)), Some(Val::String(key))) => {
+                    let map_ref_clone = map_ref.clone();
+                    let map = map_ref_clone.borrow_mut();
+                    self.vals.push(map[&key].clone());
+                },
+                _ => panic!("Panic: GetMapVal")
+            }
             Op::PopVal => {
                 self.vals.pop();
             }
@@ -342,32 +362,59 @@ impl VM {
 
 fn main() {
     let vals = r#"
+| <value>
+| <key>
+| <map_ref>
+| set_map_val
+
+| <key>
+| <map_ref>
+| get_map_val
+
 func {
-    new_vec
-    new_var
+    new_map         | var1 = map
+    new_var         |
 
-    get_const cur 1
-    get_var 0 0
-    push_to_vec
+    get_const cur 5 | var1["name"] = "Mike"
+    get_const cur 1 |
+    get_var 0 0     |
+    set_map_val     |
 
-    get_const cur 2
-    get_var 0 0
-    push_to_vec
+    get_const cur 6 | var1["age"] = 18i
+    get_const cur 2 |
+    get_var 0 0     |
+    set_map_val     |
 
-    get_const cur 3
-    get_const cur 4
-    get_var 0 0
-    set_vec_val
+    get_const cur 2 | var1["age"]
+    get_var 0 0     |
+    get_map_val     |
+    to_string       |
 
-    get_var 0 0
-    call_sys "std/val_dump"
+    get_const cur 4 | " Age: "
+
+    get_const cur 1 | var1["name"]
+    get_var 0 0     |
+    get_map_val     |
+
+    get_const cur 3 | "Name: "
+
+    concat
+    concat
+    concat
+
     call_sys "std/print"
+
     return
 }
-"Hello world"
-"Not!"
-"Yes"
-1i
+
+"name"    | 1
+"age"     | 2
+
+"Name: "  | 3
+", Age: " | 4
+
+"Mike"    | 5
+18i       | 6
     "#
     .to_string();
 
