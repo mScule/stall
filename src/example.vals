@@ -1,26 +1,37 @@
+| A program that creates string "Name: Mike, Age: 18"
+
 func {
-    new_vec
+    new_map
     new_var
 
-    get_const cur 1
+    "Mike"
+    "name"
     get_var 0 0
-    push_to_vec
+    set_map_val
 
-    get_const cur 2
+    18i
+    "age"
     get_var 0 0
-    push_to_vec
+    set_map_val
 
-    get_const cur 3
-    get_const cur 4
+    "age"
     get_var 0 0
-    set_vec_val
+    get_map_val
+    to_string
 
+    ", Age: "
+
+    "name"
     get_var 0 0
-    call_sys "std/val_dump"
+    get_map_val
+
+    "Name: "
+
+    concat
+    concat
+    concat
+
     call_sys "std/print"
+
     return
 }
-"Hello world"
-"Not!"
-"Yes"
-1i
