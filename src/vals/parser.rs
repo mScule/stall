@@ -1,36 +1,27 @@
 use std::{iter::Peekable, rc::Rc};
 
-use crate::{iterators::Tokenizer, Func, Op, Val};
+use super::{
+    mod_index::ModIndex,
+    tokenizer::{Token, Tokenizer},
+};
 
-use super::tokenizer::Token;
+use crate::vm::{
+    op::Op,
+    val::{Func, Val},
+};
 
 pub struct Parser<'a> {
     tokens: Peekable<Tokenizer<'a>>,
-    mod_indexes: Vec<String>,
+    mod_index: &'a mut ModIndex,
     cur_mod: String,
 }
 
 impl<'a> Parser<'a> {
-    pub fn from(string: &'a String, mod_indexes: Option<&Vec<String>>, cur_mod: &String) -> Self {
+    pub fn new(string: &'a String, mod_index: &'a mut ModIndex, cur_mod: &String) -> Self {
         Self {
             tokens: Tokenizer::from(&string).peekable(),
-            mod_indexes: if let Some(mod_indexes) = mod_indexes {
-                mod_indexes.clone()
-            } else {
-                Vec::new()
-            },
+            mod_index,
             cur_mod: cur_mod.clone(),
-        }
-    }
-
-    fn get_mod_index(&mut self, mod_name: &String) -> usize {
-        match self.mod_indexes.iter().position(|name| name.eq(mod_name)) {
-            Some(mod_index) => mod_index,
-            None => {
-                self.mod_indexes.push(mod_name.clone());
-
-                self.mod_indexes.len() - 1
-            }
         }
     }
 
@@ -51,7 +42,7 @@ impl<'a> Parser<'a> {
                     "false" => Op::GetInlineVal(Val::Bool(false)),
                     "get_mod_val" => match (self.tokens.next(), self.tokens.next()) {
                         (Some(Token::String(mod_name)), Some(Token::Number(val_index))) => {
-                            let mod_index = self.get_mod_index(&mod_name);
+                            let mod_index = self.mod_index.get_index_of_mod(&mod_name);
                             let val_index = val_index
                                 .parse::<usize>()
                                 .expect("get_const $2 has to be usize");
@@ -63,7 +54,7 @@ impl<'a> Parser<'a> {
                                 panic!("get_const $1 only allows cur keyword");
                             }
 
-                            let mod_index = self.get_mod_index(&self.cur_mod.clone());
+                            let mod_index = self.mod_index.get_index_of_mod(&self.cur_mod.clone());
                             let val_index = val_index
                                 .parse::<usize>()
                                 .expect("get_const $2 has to be usize");
@@ -153,8 +144,12 @@ impl<'a> Parser<'a> {
                 // Num literal
                 Some(Token::Number(num)) => match self.tokens.next() {
                     Some(Token::Word(type_hint)) => match type_hint.as_str() {
-                        "i" => Op::GetInlineVal(Val::I64(num.parse().expect("Number has to be int"))),
-                        "f" => Op::GetInlineVal(Val::F64(num.parse().expect("Number has to be float"))),
+                        "i" => {
+                            Op::GetInlineVal(Val::I64(num.parse().expect("Number has to be int")))
+                        }
+                        "f" => {
+                            Op::GetInlineVal(Val::F64(num.parse().expect("Number has to be float")))
+                        }
                         _ => panic!("Unrecognized type hint"),
                     },
                     _ => panic!("Unexpected EOF"),
