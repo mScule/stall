@@ -76,8 +76,8 @@ impl Val {
             Self::F64(f64) => f64.to_string(),
             Self::None => String::from("none"),
             Self::String(val) => val.to_string(),
-            Self::Vec(val) => format!("vec@{:p}", val),
-            Self::Map(val) => format!("map@{:p}", val),
+            Self::Vec(val) => format!("vec@{:p}", val.as_ptr()),
+            Self::Map(val) => format!("map@{:p}", val.as_ptr()),
             Self::Func(val) => format!("func@{:p}", val.as_ptr()),
         }
     }
@@ -285,9 +285,13 @@ impl VM {
                     Val::None => self.vals.push(Val::Bool(true)),
                     _ => self.vals.push(Val::Bool(false)),
                 },
+                (Some(Val::Bool(a)), Some(Val::Bool(b))) => self.vals.push(Val::Bool(a == b)),
                 (Some(Val::I64(a)), Some(Val::I64(b))) => self.vals.push(Val::Bool(a == b)),
                 (Some(Val::F64(a)), Some(Val::F64(b))) => self.vals.push(Val::Bool(a == b)),
-                (Some(Val::Bool(a)), Some(Val::Bool(b))) => self.vals.push(Val::Bool(a == b)),
+                (Some(Val::String(a)), Some(Val::String(b))) => self.vals.push(Val::Bool(a.eq(&b))),
+                (Some(Val::Vec(a)), Some(Val::Vec(b))) => self.vals.push(Val::Bool(a.as_ptr() == b.as_ptr())),
+                (Some(Val::Map(a)), Some(Val::Map(b))) => self.vals.push(Val::Bool(a.as_ptr() == b.as_ptr())),
+                (Some(Val::Func(a)), Some(Val::Func(b))) => self.vals.push(Val::Bool(a.as_ptr() == b.as_ptr())),
                 _ => panic!("Panic: Eq"),
             },
             Op::Not => match self.vals.pop() {
@@ -367,37 +371,17 @@ fn main() {
 | A program that creates string "Name: Mike, Age: 18"
 
 func {
-    new_map
+    new_vec
     new_var
 
-    "Mike"
-    "name"
     get_var 0 0
-    set_map_val
+    new_var
 
-    18i
-    "age"
     get_var 0 0
-    set_map_val
+    get_var 0 1
+    eq
 
-    "age"
-    get_var 0 0
-    get_map_val
-    to_string
-
-    ", Age: "
-
-    "name"
-    get_var 0 0
-    get_map_val
-
-    "Name: "
-
-    concat
-    concat
-    concat
-
-    call_sys "std/print"
+    call_sys"std/print"
 
     return
 }
