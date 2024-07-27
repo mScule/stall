@@ -6,7 +6,7 @@ impl<T> Stack<T> {
     pub fn new() -> Self {
         Self { vec: Vec::new() }
     }
-    pub fn from(vec: Vec<T>) -> Self {
+    pub fn from_vec(vec: Vec<T>) -> Self {
         Self { vec }
     }
     pub fn push(&mut self, value: T) {
@@ -20,14 +20,6 @@ impl<T> Stack<T> {
     }
     pub fn peek_last_mut(&mut self) -> Option<&mut T> {
         self.vec.last_mut()
-    }
-    pub fn for_each<F>(&self, func: F)
-    where
-        F: Fn(&T),
-    {
-        for v in &self.vec {
-            func(&v);
-        }
     }
     pub fn len(&self) -> usize {
         self.vec.len()
