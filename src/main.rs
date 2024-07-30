@@ -1,60 +1,59 @@
 mod collections;
-mod vals;
+mod sfuncs;
 mod vm;
 
-use std::collections::HashMap;
-
-use vals::mod_builder::ModBuilder;
-use vals::mod_index::ModIndex;
-use vm::sys_api::SysFunc;
+use vm::sys_api::{SysApi, SysFunc};
 use vm::val::Val;
-use vm::VM;
+use vm::{Funcs, VM};
 
 fn main() {
-    let mut mod_index = ModIndex::new();
-    let mut mod_builder = ModBuilder::new(&mut mod_index);
+    let mut funcs = Funcs::new();
+    let mut sfuncs_reader = sfuncs::Reader::new(&mut funcs);
+
+    sfuncs_reader.read(
+        Some("libs/greeter.sfuncs/"),
+        r#"
+            greet {
+                | 0| 18i64
+                | 1| lte
+
+                | 2| if_false_goto 9
+                | 3| "Hello "
+                | 4| "\n"
+                | 5| concat
+                | 6| concat
+                | 7| call_sys "std_print"
+                | 8| return
+
+                | 9| "You are too young\n"
+                |10| call_sys "std_print"
+                |11| return
+            }
+        "#,
+    );
+
+    sfuncs_reader.read(
+        None,
+        r#"
+            main {
+                "Mike" 19i64
+                get_func "libs/greeter.sfuncs/greet"
+                call_func
+
+                return
+            }
+        "#,
+    );
 
     let mut vm = VM::new(
-        Vec::from([
-            mod_builder.build_mod(
-                &"funcs".to_string(),
-                &r#"
-                    func {
-                        new_scope
-                        new_var
-
-                        get_var 0 0
-                        "Printing: "
-                        concat
-
-                        call_sys "std/print"
-
-                        end_scope
-                        return
-                    }
-                "#
-                .to_string(),
-            ),
-            mod_builder.build_mod(
-                &"main".to_string(),
-                &r#"
-                    func {
-                        "Hello world!\n"
-                        get_mod_val "funcs" 0
-                        call_func
-                        return
-                    }
-                "#
-                .to_string(),
-            ),
-        ]),
-        HashMap::from([
-            ("std/print".to_string(), std_print as SysFunc),
-            ("std/val_dump".to_string(), std_val_dump as SysFunc),
+        funcs,
+        SysApi::from([
+            ("std_print".to_string(), std_print as SysFunc),
+            ("std_val_dump".to_string(), std_val_dump as SysFunc),
         ]),
     );
 
-    vm.start(mod_index.get_index_of_mod(&"main".to_string()), 0);
+    vm.start("main");
 }
 
 fn std_print(vm: &mut VM) {

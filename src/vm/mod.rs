@@ -1,6 +1,6 @@
+pub mod op;
 pub mod sys_api;
 pub mod val;
-pub mod op;
 
 mod call;
 
@@ -18,10 +18,10 @@ pub enum Status {
     End,
 }
 
-pub type Mod = Vec<Val>;
+pub type Funcs = HashMap<String, Val>;
 
 pub struct VM {
-    mods: Vec<Mod>,
+    funcs: Funcs,
     sys_api: SysApi,
 
     status: Status,
@@ -31,9 +31,9 @@ pub struct VM {
 }
 
 impl VM {
-    pub fn new(mods: Vec<Vec<Val>>, sys_api: SysApi) -> Self {
+    pub fn new(funcs: Funcs, sys_api: SysApi) -> Self {
         Self {
-            mods,
+            funcs,
             sys_api,
 
             status: Status::Run,
@@ -42,15 +42,12 @@ impl VM {
             vals: Stack::new(),
         }
     }
-    pub fn start(&mut self, mod_index: usize, val_index: usize) {
-        let main = &self.mods[mod_index][val_index];
+    pub fn start(&mut self, func_name: &str) {
+        let main = &self.funcs.get(func_name);
 
         match main {
-            Val::Func(main_func) => self.calls.push(Call::from(main_func.clone())),
-            _ => panic!(
-                "No function avaliable at mod: {} val: {}",
-                mod_index, val_index
-            ),
+            Some(Val::Func(main_func)) => self.calls.push(Call::from(main_func.clone())),
+            _ => panic!("Function \"{}\" is not avaliable", func_name),
         }
 
         self.run();
@@ -76,14 +73,10 @@ impl VM {
             Op::EndScope => {
                 self.scopes.pop();
             }
-            Op::GetModVal(mod_index, func_index) => match self.mods.get(mod_index) {
-                Some(funcs) => match funcs.get(func_index) {
-                    Some(func) => self.vals.push(func.clone()),
-                    _ => panic!("Panic: Get const index"),
-                },
-                _ => panic!("Panic: Get const mod"),
-            },
-            Op::GetInlineVal(val) => self.vals.push(val.clone()),
+            Op::GetFunc(func_name) => {
+                self.vals.push(self.funcs[&func_name].clone());
+            }
+            Op::GetConst(val) => self.vals.push(val.clone()),
             Op::NewMap => self
                 .vals
                 .push(Val::Map(Rc::new(RefCell::new(HashMap::new())))),
@@ -280,9 +273,6 @@ impl VM {
                 }
                 _ => panic!("Panic: GetMapVal"),
             },
-            Op::PopVal => {
-                self.vals.pop();
-            }
         }
     }
 }

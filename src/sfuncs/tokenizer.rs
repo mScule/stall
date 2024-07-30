@@ -26,7 +26,7 @@ pub struct Tokenizer<'a> {
 }
 
 impl<'a> Tokenizer<'a> {
-    pub fn from(string: &'a String) -> Self {
+    pub fn from(string: &'a str) -> Self {
         Self {
             chars: string.chars().peekable(),
         }
