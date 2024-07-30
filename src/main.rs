@@ -49,6 +49,16 @@ fn main() {
                 get_func "libs/greeter.sfuncs/greet"
                 call_func
 
+                "Dina"
+                25i64
+                get_func "libs/greeter.sfuncs/greet"
+                call_func
+
+                "Vincent"
+                10i64
+                get_func "libs/greeter.sfuncs/greet"
+                call_func
+
                 return
             }
         "#,
