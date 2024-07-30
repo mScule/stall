@@ -18,16 +18,19 @@ fn main() {
                 | 1| lte
 
                 | 2| if_false_goto 9
-                | 3| "Hello "
-                | 4| "\n"
-                | 5| concat
-                | 6| concat
+                | 3| "Welcome in "
+                | 4| concat
+                | 5| call_sys "std_print"
+                | 6| "\n"
                 | 7| call_sys "std_print"
                 | 8| return
 
-                | 9| "You are too young\n"
+                | 9| "You are too young "
                 |10| call_sys "std_print"
-                |11| return
+                |11| call_sys "std_print"
+                |12| "\n"
+                |13| call_sys "std_print"
+                |14| return
             }
         "#,
     );
@@ -36,7 +39,13 @@ fn main() {
         None,
         r#"
             main {
-                "Mike" 19i64
+                "Mike"
+                17i64
+                get_func "libs/greeter.sfuncs/greet"
+                call_func
+
+                "Jack"
+                18i64
                 get_func "libs/greeter.sfuncs/greet"
                 call_func
 
