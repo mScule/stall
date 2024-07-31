@@ -20,9 +20,9 @@ pub enum Status {
 
 pub type Funcs = HashMap<String, Val>;
 
-pub struct VM {
+pub struct VM<'a> {
+    sys_api: &'a SysApi,
     funcs: Funcs,
-    sys_api: SysApi,
 
     status: Status,
     scopes: Stack<Vec<Val>>,
@@ -30,17 +30,20 @@ pub struct VM {
     pub vals: Stack<Val>,
 }
 
-impl VM {
-    pub fn new(funcs: Funcs, sys_api: SysApi) -> Self {
+impl<'a> VM<'a> {
+    pub fn new(sys_api: &'a SysApi) -> Self {
         Self {
-            funcs,
             sys_api,
+            funcs: Funcs::new(),
 
             status: Status::Run,
             scopes: Stack::from_vec(Vec::from([Vec::new()])),
             calls: Stack::from_vec(Vec::new()),
             vals: Stack::new(),
         }
+    }
+    pub fn set_funcs(&mut self, funcs: Funcs) {
+        self.funcs = funcs;
     }
     pub fn start(&mut self, func_name: &str) {
         let main = &self.funcs.get(func_name);

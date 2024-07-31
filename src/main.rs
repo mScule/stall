@@ -1,90 +1,23 @@
+mod boot;
 mod collections;
-mod sfuncs;
+mod funcs;
+mod std_sys_api;
 mod vm;
 
-use vm::sys_api::{SysApi, SysFunc};
-use vm::val::Val;
-use vm::{Funcs, VM};
+use boot::{get_main_path, Booter};
+use std_sys_api::STD_SYS_API;
+use vm::sys_api::create_sys_api;
+use vm::VM;
 
 fn main() {
-    let mut funcs = Funcs::new();
-    let mut sfuncs_reader = sfuncs::Reader::new(&mut funcs);
+    let sys_api = create_sys_api([
+        STD_SYS_API
+    ]);
 
-    sfuncs_reader.read(
-        Some("libs/greeter.sfuncs/"),
-        r#"
-            greet {
-                | 0| 18i64
-                | 1| lte
+    let mut vm = VM::new(&sys_api);
+    let mut booter = Booter::new(&mut vm);
 
-                | 2| if_false_goto 9
-                | 3| "Welcome in "
-                | 4| concat
-                | 5| call_sys "std_print"
-                | 6| "\n"
-                | 7| call_sys "std_print"
-                | 8| return
-
-                | 9| "You are too young "
-                |10| call_sys "std_print"
-                |11| call_sys "std_print"
-                |12| "\n"
-                |13| call_sys "std_print"
-                |14| return
-            }
-        "#,
-    );
-
-    sfuncs_reader.read(
-        None,
-        r#"
-            main {
-                "Mike"
-                17i64
-                get_func "libs/greeter.sfuncs/greet"
-                call_func
-
-                "Jack"
-                18i64
-                get_func "libs/greeter.sfuncs/greet"
-                call_func
-
-                "Dina"
-                25i64
-                get_func "libs/greeter.sfuncs/greet"
-                call_func
-
-                "Vincent"
-                10i64
-                get_func "libs/greeter.sfuncs/greet"
-                call_func
-
-                return
-            }
-        "#,
-    );
-
-    let mut vm = VM::new(
-        funcs,
-        SysApi::from([
-            ("std_print".to_string(), std_print as SysFunc),
-            ("std_val_dump".to_string(), std_val_dump as SysFunc),
-        ]),
-    );
-
-    vm.start("main");
-}
-
-fn std_print(vm: &mut VM) {
-    match vm.vals.pop() {
-        Some(val) => print!("{}", val.to_string()),
-        _ => (),
-    }
-}
-
-fn std_val_dump(vm: &mut VM) {
-    match vm.vals.pop() {
-        Some(val) => vm.vals.push(Val::String(format!("{:?}", val))),
-        _ => (),
+    if let Some(main_path) = get_main_path() {
+        booter.boot(&main_path);
     }
 }
