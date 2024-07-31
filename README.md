@@ -159,3 +159,9 @@ If Pops or Pushes columns have * it means the value can be 0 or more.
 | `new_map`                           | Create new empty map                                          | 0    | 1      |
 | `get_map_val`                       | Gets value from map with key                                  | 2    | 1      |
 | `set_map_val`                       | Sets value to map with key                                    | 3    | 0      |
+
+### Comments
+
+If you want to add comments to the `.funcs` file you can do it with pipes `|`.
+
+If you want to have comment in middle of code you can do it by having two pipes like so `| This is comment |`. If you don't add the second pipe in the same line, the comment will be terminated when tokenizer hits new line character.
