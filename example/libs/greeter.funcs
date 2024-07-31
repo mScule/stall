@@ -1,0 +1,19 @@
+greet {
+    | 0| 18i64
+    | 1| lte
+
+    | 2| if_false_goto 9
+    | 3| "Welcome in "
+    | 4| concat
+    | 5| call_sys "std/print"
+    | 6| "\n"
+    | 7| call_sys "std/print"
+    | 8| return
+
+    | 9| "You are too young "
+    |10| call_sys "std/print"
+    |11| call_sys "std/print"
+    |12| "\n"
+    |13| call_sys "std/print"
+    |14| return
+}
