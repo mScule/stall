@@ -1,3 +1,15 @@
+pub mod calling;
+pub mod casting;
+pub mod comparison;
+pub mod counting;
+pub mod jumping;
+pub mod maps;
+pub mod scopes;
+pub mod strings;
+pub mod values;
+pub mod variables;
+pub mod vecs;
+
 use super::val::Val;
 
 #[derive(Clone, Debug)]
@@ -16,9 +28,9 @@ pub enum Op {
     GetVar(usize, usize),
 
     // Calling
-    CallSys(String),
+    CallApi(String),
     CallFunc,
-    Return,
+    ReturnCall,
 
     // Jumping
     GoTo(usize),

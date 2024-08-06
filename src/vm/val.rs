@@ -21,10 +21,10 @@ pub enum Val {
 impl ToString for Val {
     fn to_string(&self) -> String {
         match self {
+            Self::None => String::from("none"),
             Self::Bool(bool) => String::from(if *bool { "true" } else { "false" }),
             Self::I64(i64) => i64.to_string(),
             Self::F64(f64) => f64.to_string(),
-            Self::None => String::from("none"),
             Self::String(val) => val.to_string(),
             Self::Vec(val) => format!("vec@{:p}", val.as_ptr()),
             Self::Map(val) => format!("map@{:p}", val.as_ptr()),

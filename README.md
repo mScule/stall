@@ -18,7 +18,7 @@ To start a program call stall in terminal and give the path to the program folde
 
 ## Structrue
 
-Stall consists of *booter*, *funcs_parser*, and *vm* thats abilities of doing stuff can be extended by creating "sys apis".
+Stall consists of *booter*, *funcs_parser*, and *vm* thats abilities of doing stuff can be extended by creating "apis".
 
 ### Booter `boot`
 
@@ -73,7 +73,7 @@ Funcs files consist of functions. Functions are defined by writing their name th
 ```
 say_hello {
     "Hello world!\n"
-    call_sys "std/print"
+    call_api "std/print"
     return
 }
 ```
@@ -133,7 +133,7 @@ If Pops or Pushes columns have * it means the value can be 0 or more.
 | `set_var <offset_from_top> <index>` | Sets variable                                                 | 1    | 0      |
 | `get_var <offset_from_top> <index>` | Gets variable                                                 | 0    | 1      |
 | `call_func`                         | Attempts to call a function                                   | *    | *      |
-| `call_sys`                          | Attempts to call a sys function                               | *    | *      |
+| `call_api`                          | Attempts to call a external api function                      | *    | *      |
 | `return`                            | Pops function latest call from call stack                     | 0    | 0      |
 | `goto`                              | Sets the latest calls pc to given index                       | 0    | 0      |
 | `if_true_goto`                      | Does the same as goto if the value in the value stack is true | 1    | 0      |

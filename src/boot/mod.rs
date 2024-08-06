@@ -18,8 +18,10 @@ impl<'a> Booter<'a> {
         }
     }
 
-    pub fn boot(&mut self, dir_path: &str) {
-        let sboot = self.read_boot_file(dir_path);
+    pub fn boot(&mut self) {
+        let dir_path = get_main_path().expect("No main path given");
+
+        let sboot = self.read_boot_file(&dir_path);
         let mut paths: Vec<String> = Vec::new();
 
         let main_path: String = match sboot {
@@ -30,7 +32,7 @@ impl<'a> Booter<'a> {
             Err(()) => return,
         };
 
-        find_func_paths(&mut paths, dir_path);
+        find_func_paths(&mut paths, &dir_path);
 
         // Parse func files
         for path in paths {

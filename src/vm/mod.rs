@@ -1,16 +1,14 @@
 pub mod op;
-pub mod sys_api;
 pub mod val;
 
 mod call;
 
+use crate::api::Api;
 use crate::collections::stack::Stack;
+
 use call::Call;
 use op::Op;
-use std::cell::RefCell;
 use std::collections::HashMap;
-use std::rc::Rc;
-use sys_api::SysApi;
 use val::Val;
 
 pub enum Status {
@@ -21,7 +19,7 @@ pub enum Status {
 pub type Funcs = HashMap<String, Val>;
 
 pub struct VM<'a> {
-    sys_api: &'a SysApi,
+    api: &'a Api,
     funcs: Funcs,
 
     status: Status,
@@ -31,9 +29,9 @@ pub struct VM<'a> {
 }
 
 impl<'a> VM<'a> {
-    pub fn new(sys_api: &'a SysApi) -> Self {
+    pub fn new(api: &'a Api) -> Self {
         Self {
-            sys_api,
+            api,
             funcs: Funcs::new(),
 
             status: Status::Run,
@@ -70,212 +68,61 @@ impl<'a> VM<'a> {
         let op = call.next().expect("Cannot access OP").clone();
 
         match op {
-            Op::NewScope => {
-                self.scopes.push(Vec::new());
-            }
-            Op::EndScope => {
-                self.scopes.pop();
-            }
-            Op::GetFunc(func_name) => {
-                self.vals.push(self.funcs[&func_name].clone());
-            }
-            Op::GetConst(val) => self.vals.push(val.clone()),
-            Op::NewMap => self
-                .vals
-                .push(Val::Map(Rc::new(RefCell::new(HashMap::new())))),
-            Op::NewVec => self.vals.push(Val::Vec(Rc::new(RefCell::new(Vec::new())))),
-            Op::NewVar => match self.vals.pop() {
-                Some(val) => {
-                    let scope = self.scopes.peek_last_mut().unwrap();
-                    scope.push(val);
-                }
-                _ => panic!("Panic: Def var"),
-            },
-            Op::SetVar(offset, index) => match self.vals.pop() {
-                Some(val) => {
-                    let scope = self
-                        .scopes
-                        .peek_mut(self.scopes.len() - 1 - offset)
-                        .unwrap();
+            // Values
+            Op::GetFunc(key) => self.op_get_func(key),
+            Op::GetConst(val) => self.op_get_const(val),
 
-                    scope[index] = val;
-                }
-                _ => panic!("Panic: Set var"),
-            },
-            Op::GetVar(offset, index) => match self.scopes.peek_mut(self.scopes.len() - 1 - offset)
-            {
-                Some(vars) => match vars.get(index) {
-                    Some(val) => self.vals.push(val.clone()),
-                    _ => panic!("Panic: Get var - Bad index"),
-                },
-                _ => panic!("Panic: Get var - Bad offset"),
-            },
-            Op::Add => match (self.vals.pop(), self.vals.pop()) {
-                (Some(Val::I64(a)), Some(Val::I64(b))) => self.vals.push(Val::I64(a + b)),
-                (Some(Val::F64(a)), Some(Val::F64(b))) => self.vals.push(Val::F64(a + b)),
-                _ => panic!("Panic: Add"),
-            },
-            Op::Sub => match (self.vals.pop(), self.vals.pop()) {
-                (Some(Val::I64(a)), Some(Val::I64(b))) => self.vals.push(Val::I64(a - b)),
-                (Some(Val::F64(a)), Some(Val::F64(b))) => self.vals.push(Val::F64(a - b)),
-                _ => panic!("Panic: Sub"),
-            },
-            Op::Mul => match (self.vals.pop(), self.vals.pop()) {
-                (Some(Val::I64(a)), Some(Val::I64(b))) => self.vals.push(Val::I64(a * b)),
-                (Some(Val::F64(a)), Some(Val::F64(b))) => self.vals.push(Val::F64(a * b)),
-                _ => panic!("Panic: Mul"),
-            },
-            Op::Div => match (self.vals.pop(), self.vals.pop()) {
-                (Some(Val::I64(a)), Some(Val::I64(b))) => self.vals.push(Val::I64(a / b)),
-                (Some(Val::F64(a)), Some(Val::F64(b))) => self.vals.push(Val::F64(a / b)),
-                _ => panic!("Panic: Div"),
-            },
-            Op::Concat => match (self.vals.pop(), self.vals.pop()) {
-                (Some(Val::String(mut a)), Some(Val::String(b))) => {
-                    a.push_str(&b);
-                    self.vals.push(Val::String(a));
-                }
-                _ => panic!("Panic: Concat"),
-            },
-            Op::Gte => match (self.vals.pop(), self.vals.pop()) {
-                (Some(Val::I64(a)), Some(Val::I64(b))) => self.vals.push(Val::Bool(a >= b)),
-                (Some(Val::F64(a)), Some(Val::F64(b))) => self.vals.push(Val::Bool(a >= b)),
-                _ => panic!("Panic: Gte"),
-            },
-            Op::Lte => match (self.vals.pop(), self.vals.pop()) {
-                (Some(Val::I64(a)), Some(Val::I64(b))) => self.vals.push(Val::Bool(a <= b)),
-                (Some(Val::F64(a)), Some(Val::F64(b))) => self.vals.push(Val::Bool(a <= b)),
-                _ => panic!("Panic: Lte"),
-            },
-            Op::Gt => match (self.vals.pop(), self.vals.pop()) {
-                (Some(Val::I64(a)), Some(Val::I64(b))) => self.vals.push(Val::Bool(a > b)),
-                (Some(Val::F64(a)), Some(Val::F64(b))) => self.vals.push(Val::Bool(a > b)),
-                _ => panic!("Panic: Gt"),
-            },
-            Op::Lt => match (self.vals.pop(), self.vals.pop()) {
-                (Some(Val::I64(a)), Some(Val::I64(b))) => self.vals.push(Val::Bool(a < b)),
-                (Some(Val::F64(a)), Some(Val::F64(b))) => self.vals.push(Val::Bool(a < b)),
-                _ => panic!("Panic: Lt"),
-            },
-            Op::GoTo(amt) => {
-                call.pc = amt;
-            }
-            Op::IfTrueGoTo(i) => match self.vals.pop() {
-                Some(Val::Bool(cond)) => {
-                    if cond {
-                        call.pc = i;
-                    }
-                }
-                _ => panic!("Panic: If true go to"),
-            },
-            Op::IfFalseGoTo(i) => match self.vals.pop() {
-                Some(Val::Bool(cond)) => {
-                    if !cond {
-                        call.pc = i;
-                    }
-                }
-                _ => panic!("Panic: If false go to"),
-            },
-            Op::CallSys(key) => match self.sys_api.get(&key) {
-                Some(func) => func(self),
-                _ => panic!("Panic: System doesn't have following feature {}", key),
-            },
-            Op::CallFunc => match self.vals.pop() {
-                Some(Val::Func(func)) => self.calls.push(Call::from(func)),
-                _ => panic!("Panic: Call"),
-            },
-            Op::Return => {
-                self.calls.pop();
+            // Scopes
+            Op::NewScope => self.op_new_scope(),
+            Op::EndScope => self.op_end_scope(),
 
-                if self.calls.len() == 0 {
-                    self.status = Status::End;
-                }
-            }
-            Op::Eq => match (self.vals.pop(), self.vals.pop()) {
-                (Some(val), Some(Val::None)) | (Some(Val::None), Some(val)) => match val {
-                    Val::None => self.vals.push(Val::Bool(true)),
-                    _ => self.vals.push(Val::Bool(false)),
-                },
-                (Some(Val::Bool(a)), Some(Val::Bool(b))) => self.vals.push(Val::Bool(a == b)),
-                (Some(Val::I64(a)), Some(Val::I64(b))) => self.vals.push(Val::Bool(a == b)),
-                (Some(Val::F64(a)), Some(Val::F64(b))) => self.vals.push(Val::Bool(a == b)),
-                (Some(Val::String(a)), Some(Val::String(b))) => self.vals.push(Val::Bool(a.eq(&b))),
-                (Some(Val::Vec(a)), Some(Val::Vec(b))) => {
-                    self.vals.push(Val::Bool(a.as_ptr() == b.as_ptr()))
-                }
-                (Some(Val::Map(a)), Some(Val::Map(b))) => {
-                    self.vals.push(Val::Bool(a.as_ptr() == b.as_ptr()))
-                }
-                (Some(Val::Func(a)), Some(Val::Func(b))) => {
-                    self.vals.push(Val::Bool(a.as_ptr() == b.as_ptr()))
-                }
-                _ => panic!("Panic: Eq"),
-            },
-            Op::Not => match self.vals.pop() {
-                Some(Val::Bool(val)) => self.vals.push(Val::Bool(!val)),
-                _ => panic!("Panic: Not"),
-            },
-            Op::ToI64 => match self.vals.pop() {
-                Some(Val::F64(val)) => self.vals.push(Val::I64(val.floor() as i64)),
-                Some(Val::String(val)) => match val.parse::<i64>() {
-                    Ok(val) => self.vals.push(Val::I64(val)),
-                    _ => panic!("Panic: ToI64 - String"),
-                },
-                _ => panic!("Panic: ToI64"),
-            },
-            Op::ToF64 => match self.vals.pop() {
-                Some(Val::I64(val)) => self.vals.push(Val::I64(val as i64)),
-                Some(Val::String(val)) => match val.parse::<f64>() {
-                    Ok(val) => self.vals.push(Val::F64(val)),
-                    _ => panic!("Panic: ToI64 - String"),
-                },
-                _ => panic!("Panic: ToI64"),
-            },
-            Op::ToString => match self.vals.pop() {
-                Some(val) => self.vals.push(Val::String(val.to_string())),
-                _ => panic!("Panic: ToString"),
-            },
-            Op::PushToVec => match (self.vals.pop(), self.vals.pop()) {
-                (Some(Val::Vec(vec_ref)), Some(val)) => {
-                    let vec_ref_clone = vec_ref.clone();
-                    let mut vec = vec_ref_clone.borrow_mut();
-                    vec.push(val);
-                }
-                _ => panic!("Panic: Push"),
-            },
-            Op::SetVecVal => match (self.vals.pop(), self.vals.pop(), self.vals.pop()) {
-                (Some(Val::Vec(vec_ref)), Some(Val::I64(index)), Some(val)) => {
-                    let vec_ref_clone = vec_ref.clone();
-                    let mut vec = vec_ref_clone.borrow_mut();
-                    vec[index as usize] = val;
-                }
-                _ => panic!("Panic: SetIndex"),
-            },
-            Op::GetVecVal => match (self.vals.pop(), self.vals.pop()) {
-                (Some(Val::Vec(vec_ref)), Some(Val::I64(index))) => {
-                    match vec_ref.borrow().get(index as usize) {
-                        Some(val) => self.vals.push(val.clone()),
-                        _ => panic!("Panic: GetIndex - Bad index"),
-                    }
-                }
-                _ => panic!("Panic: GetIndex"),
-            },
-            Op::SetMapVal => match (self.vals.pop(), self.vals.pop(), self.vals.pop()) {
-                (Some(Val::Map(map_ref)), Some(Val::String(key)), Some(val)) => {
-                    let map_ref_clone = map_ref.clone();
-                    let mut map = map_ref_clone.borrow_mut();
-                    map.insert(key, val);
-                }
-                _ => panic!("Panic: GetMapVal"),
-            },
-            Op::GetMapVal => match (self.vals.pop(), self.vals.pop()) {
-                (Some(Val::Map(map_ref)), Some(Val::String(key))) => {
-                    let map_ref_clone = map_ref.clone();
-                    let map = map_ref_clone.borrow_mut();
-                    self.vals.push(map[&key].clone());
-                }
-                _ => panic!("Panic: GetMapVal"),
-            },
+            // Variables
+            Op::NewVar => self.op_new_var(),
+            Op::SetVar(offset, index) => self.op_set_var(offset, index),
+            Op::GetVar(offset, index) => self.op_get_var(offset, index),
+
+            // Calling
+            Op::CallApi(key) => self.op_call_api(key),
+            Op::CallFunc => self.op_call_func(),
+            Op::ReturnCall => self.op_return_call(),
+
+            // Jumping
+            Op::GoTo(index) => self.op_goto(index),
+            Op::IfTrueGoTo(index) => self.op_if_true_goto(index),
+            Op::IfFalseGoTo(index) => self.op_if_false_goto(index),
+
+            // Comparison
+            Op::Gte => self.op_gte(),
+            Op::Lte => self.op_lte(),
+            Op::Gt => self.op_gt(),
+            Op::Lt => self.op_lt(),
+            Op::Eq => self.op_eq(),
+            Op::Not => self.op_not(),
+
+            // Counting
+            Op::Add => self.op_add(),
+            Op::Sub => self.op_sub(),
+            Op::Mul => self.op_mul(),
+            Op::Div => self.op_div(),
+
+            // Strings
+            Op::Concat => self.op_concat(),
+
+            // Casting
+            Op::ToI64 => self.op_to_i64(),
+            Op::ToF64 => self.op_to_f64(),
+            Op::ToString => self.op_to_string(),
+
+            // Vecs
+            Op::NewVec => self.op_new_vec(),
+            Op::PushToVec => self.op_push_to_vec(),
+            Op::SetVecVal => self.op_set_vec_val(),
+            Op::GetVecVal => self.op_get_vec_val(),
+
+            // Maps
+            Op::NewMap => self.op_new_map(),
+            Op::SetMapVal => self.op_set_map_val(),
+            Op::GetMapVal => self.op_get_map_val(),
         }
     }
 }

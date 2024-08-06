@@ -1,23 +1,23 @@
+mod api;
 mod boot;
 mod collections;
 mod funcs;
-mod std_sys_api;
 mod vm;
 
-use boot::{get_main_path, Booter};
-use std_sys_api::STD_SYS_API;
-use vm::sys_api::create_sys_api;
+mod std_api;
+
+use api::{Api, ExtFunc};
+use boot::Booter;
 use vm::VM;
 
 fn main() {
-    let sys_api = create_sys_api([
-        STD_SYS_API
-    ]);
+    let api = api![
+        ("io/print", std_api::io::print),
+        ("debug/dump_vals", std_api::debug::val_dump),
+    ];
 
-    let mut vm = VM::new(&sys_api);
+    let mut vm = VM::new(&api);
     let mut booter = Booter::new(&mut vm);
 
-    if let Some(main_path) = get_main_path() {
-        booter.boot(&main_path);
-    }
+    booter.boot();
 }

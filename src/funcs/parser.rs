@@ -65,11 +65,11 @@ impl<'a> Parser<'a> {
                     },
 
                     "call_func" => Op::CallFunc,
-                    "call_sys" => match self.tokens.next() {
-                        Some(Token::String(key)) => Op::CallSys(key),
+                    "call_api" => match self.tokens.next() {
+                        Some(Token::String(key)) => Op::CallApi(key),
                         _ => panic!("Bad operands: call_sys $1: string"),
                     },
-                    "return" => Op::Return,
+                    "return" => Op::ReturnCall,
 
                     "goto" => match self.tokens.next() {
                         Some(Token::Number(index)) => {

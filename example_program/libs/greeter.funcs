@@ -5,15 +5,15 @@ greet {
     | 2| if_false_goto 9
     | 3| "Welcome in "
     | 4| concat
-    | 5| call_sys "std/print"
+    | 5| call_api "io/print"
     | 6| "\n"
-    | 7| call_sys "std/print"
+    | 7| call_api "io/print"
     | 8| return
 
     | 9| "You are too young "
-    |10| call_sys "std/print"
-    |11| call_sys "std/print"
+    |10| call_api "io/print"
+    |11| call_api "io/print"
     |12| "\n"
-    |13| call_sys "std/print"
+    |13| call_api "io/print"
     |14| return
 }
