@@ -1,6 +1,7 @@
-use std::{iter::Peekable, rc::Rc};
+use std::{iter::Peekable, rc::Rc, str::FromStr};
 
 use super::tokenizer::{Token, Tokenizer};
+use crate::vm::val::Num;
 
 use crate::vm::{
     op::Op,
@@ -30,12 +31,12 @@ impl<'a> Parser<'a> {
         loop {
             func.push(match self.tokens.next() {
                 Some(Token::Word(op)) => match op.as_str() {
-                    "none" => Op::GetConst(Val::None),
-                    "true" => Op::GetConst(Val::Bool(true)),
-                    "false" => Op::GetConst(Val::Bool(false)),
+                    "none" => Op::GetLit(Val::None),
+                    "true" => Op::GetLit(Val::Bool(true)),
+                    "false" => Op::GetLit(Val::Bool(false)),
 
-                    "get_func" => match self.tokens.next() {
-                        Some(Token::String(key)) => Op::GetFunc(key),
+                    "get_const" => match self.tokens.next() {
+                        Some(Token::String(key)) => Op::GetConst(key),
                         _ => panic!("get_const $1 has to be string"),
                     },
 
@@ -65,8 +66,8 @@ impl<'a> Parser<'a> {
                     },
 
                     "call_func" => Op::CallFunc,
-                    "call_api" => match self.tokens.next() {
-                        Some(Token::String(key)) => Op::CallApi(key),
+                    "call_sys" => match self.tokens.next() {
+                        Some(Token::String(key)) => Op::CallSys(key),
                         _ => panic!("Bad operands: call_sys $1: string"),
                     },
                     "return" => Op::ReturnCall,
@@ -111,8 +112,7 @@ impl<'a> Parser<'a> {
 
                     "concat" => Op::Concat,
 
-                    "to_i64" => Op::ToI64,
-                    "to_f64" => Op::ToF64,
+                    "to_num" => Op::ToNum,
                     "to_string" => Op::ToString,
 
                     "new_vec" => Op::NewVec,
@@ -125,19 +125,12 @@ impl<'a> Parser<'a> {
                     "set_map_val" => Op::SetMapVal,
                     _ => panic!("Unsupported op"),
                 },
-                // Num literal
-                Some(Token::Number(num)) => match self.tokens.next() {
-                    Some(Token::Word(type_hint)) => match type_hint.as_str() {
-                        "i64" => Op::GetConst(Val::I64(num.parse().expect("Number has to be int"))),
-                        "f64" => {
-                            Op::GetConst(Val::F64(num.parse().expect("Number has to be float")))
-                        }
-                        _ => panic!("Unrecognized type hint"),
-                    },
-                    _ => panic!("Unexpected EOF"),
+                Some(Token::Number(num)) => match Num::from_str(&num) {
+                    Ok(num) => Op::GetLit(Val::Num(num)),
+                    Err(_) => panic!(""),
                 },
                 // String literal
-                Some(Token::String(str)) => Op::GetConst(Val::String(str)),
+                Some(Token::String(str)) => Op::GetLit(Val::String(str)),
                 // End func }
                 Some(Token::CBracket) => return (key, Val::Func(Rc::new(func))),
                 _ => panic!("Bad token"),

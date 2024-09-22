@@ -1,0 +1,33 @@
+main {
+    "\n"
+    
+    0.3 
+    0.3
+    0.3
+    0.3
+    0.3
+    0.3
+    0.3 
+    0.3
+    0.3
+    0.3
+    0.3
+    0.3
+    add
+    add
+    add
+    add
+    add
+    add
+    add
+    add
+    add
+    add
+    add
+
+    to_string
+    concat
+    call_sys "io/print"
+
+    return
+}

@@ -1,0 +1,23 @@
+main {
+    "Mike"
+    17
+    get_const "/libs/greeter.funcs/greet"
+    call_func
+
+    "Jack"
+    18
+    get_const "/libs/greeter.funcs/greet"
+    call_func
+
+    "Dina"
+    25
+    get_const "/libs/greeter.funcs/greet"
+    call_func
+
+    "Vincent"
+    10
+    get_const "/libs/greeter.funcs/greet"
+    call_func
+
+    return
+}

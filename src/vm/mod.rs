@@ -69,8 +69,8 @@ impl<'a> VM<'a> {
 
         match op {
             // Values
-            Op::GetFunc(key) => self.op_get_func(key),
-            Op::GetConst(val) => self.op_get_const(val),
+            Op::GetConst(key) => self.op_get_func(key),
+            Op::GetLit(val) => self.op_get_const(val),
 
             // Scopes
             Op::NewScope => self.op_new_scope(),
@@ -82,7 +82,7 @@ impl<'a> VM<'a> {
             Op::GetVar(offset, index) => self.op_get_var(offset, index),
 
             // Calling
-            Op::CallApi(key) => self.op_call_api(key),
+            Op::CallSys(key) => self.op_call_api(key),
             Op::CallFunc => self.op_call_func(),
             Op::ReturnCall => self.op_return_call(),
 
@@ -109,8 +109,7 @@ impl<'a> VM<'a> {
             Op::Concat => self.op_concat(),
 
             // Casting
-            Op::ToI64 => self.op_to_i64(),
-            Op::ToF64 => self.op_to_f64(),
+            Op::ToNum => self.op_to_num(),
             Op::ToString => self.op_to_string(),
 
             // Vecs

@@ -15,8 +15,8 @@ use super::val::Val;
 #[derive(Clone, Debug)]
 pub enum Op {
     // Values
-    GetFunc(String),
-    GetConst(Val),
+    GetConst(String),
+    GetLit(Val),
 
     // Scopes
     NewScope,
@@ -28,7 +28,7 @@ pub enum Op {
     GetVar(usize, usize),
 
     // Calling
-    CallApi(String),
+    CallSys(String),
     CallFunc,
     ReturnCall,
 
@@ -55,8 +55,7 @@ pub enum Op {
     Concat,
 
     // Casting
-    ToI64,
-    ToF64,
+    ToNum,
     ToString,
 
     // Vecs

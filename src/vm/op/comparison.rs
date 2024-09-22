@@ -4,32 +4,28 @@ impl<'a> VM<'a> {
     #[inline]
     pub fn op_gte(&mut self) {
         match (self.vals.pop(), self.vals.pop()) {
-            (Some(Val::I64(a)), Some(Val::I64(b))) => self.vals.push(Val::Bool(a >= b)),
-            (Some(Val::F64(a)), Some(Val::F64(b))) => self.vals.push(Val::Bool(a >= b)),
+            (Some(Val::Num(a)), Some(Val::Num(b))) => self.vals.push(Val::Bool(a >= b)),
             _ => panic!("Panic: Gte"),
         }
     }
     #[inline]
     pub fn op_lte(&mut self) {
         match (self.vals.pop(), self.vals.pop()) {
-            (Some(Val::I64(a)), Some(Val::I64(b))) => self.vals.push(Val::Bool(a <= b)),
-            (Some(Val::F64(a)), Some(Val::F64(b))) => self.vals.push(Val::Bool(a <= b)),
+            (Some(Val::Num(a)), Some(Val::Num(b))) => self.vals.push(Val::Bool(a <= b)),
             _ => panic!("Panic: Lte"),
         }
     }
     #[inline]
     pub fn op_gt(&mut self) {
         match (self.vals.pop(), self.vals.pop()) {
-            (Some(Val::I64(a)), Some(Val::I64(b))) => self.vals.push(Val::Bool(a > b)),
-            (Some(Val::F64(a)), Some(Val::F64(b))) => self.vals.push(Val::Bool(a > b)),
+            (Some(Val::Num(a)), Some(Val::Num(b))) => self.vals.push(Val::Bool(a > b)),
             _ => panic!("Panic: Gt"),
         }
     }
     #[inline]
     pub fn op_lt(&mut self) {
         match (self.vals.pop(), self.vals.pop()) {
-            (Some(Val::I64(a)), Some(Val::I64(b))) => self.vals.push(Val::Bool(a < b)),
-            (Some(Val::F64(a)), Some(Val::F64(b))) => self.vals.push(Val::Bool(a < b)),
+            (Some(Val::Num(a)), Some(Val::Num(b))) => self.vals.push(Val::Bool(a < b)),
             _ => panic!("Panic: Lt"),
         }
     }
@@ -41,8 +37,7 @@ impl<'a> VM<'a> {
                 _ => self.vals.push(Val::Bool(false)),
             },
             (Some(Val::Bool(a)), Some(Val::Bool(b))) => self.vals.push(Val::Bool(a == b)),
-            (Some(Val::I64(a)), Some(Val::I64(b))) => self.vals.push(Val::Bool(a == b)),
-            (Some(Val::F64(a)), Some(Val::F64(b))) => self.vals.push(Val::Bool(a == b)),
+            (Some(Val::Num(a)), Some(Val::Num(b))) => self.vals.push(Val::Bool(a == b)),
             (Some(Val::String(a)), Some(Val::String(b))) => self.vals.push(Val::Bool(a.eq(&b))),
             (Some(Val::Vec(a)), Some(Val::Vec(b))) => {
                 self.vals.push(Val::Bool(a.as_ptr() == b.as_ptr()))
