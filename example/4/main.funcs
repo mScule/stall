@@ -1,0 +1,27 @@
+main {
+    get_const "/libs/human.funcs/create_from_input"
+    call_func
+    new_var
+    
+    " years old!\n"
+    
+    "age"
+    get_var 0 0
+    get_map_val
+    
+    " and you are "
+    
+    "name"
+    get_var 0 0
+    get_map_val
+    
+    "Your name is "
+
+    concat
+    concat
+    concat
+    concat
+    
+    call_sys "io/print"
+    return
+}

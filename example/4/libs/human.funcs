@@ -1,0 +1,32 @@
+create_from_input {
+    new_scope
+    
+    "Give me your name: "
+    call_sys "io/print"
+
+    call_sys "io/read_line"
+    new_var
+    
+    "Give me your age: "
+    call_sys "io/print"
+
+    call_sys "io/read_line"
+    new_var
+    
+    new_map
+    new_var
+    
+    get_var 0 0
+    "name"
+    get_var 0 2
+    set_map_val
+    
+    get_var 0 1
+    "age"
+    get_var 0 2
+    set_map_val
+    
+    get_var 0 2
+    end_scope
+    return
+}
