@@ -1,32 +1,14 @@
 main {
-    "\n"
-    
-    0.3 
-    0.3
-    0.3
-    0.3
-    0.3
-    0.3
-    0.3 
-    0.3
-    0.3
-    0.3
-    0.3
-    0.3
-    add
-    add
-    add
-    add
-    add
-    add
-    add
-    add
-    add
-    add
-    add
+            "\n"
+                    0.3 
+                    12
+                mul
+            to_string
+        concat
 
-    to_string
+        "0.3 * 12 = "
     concat
+
     call_sys "io/print"
 
     return

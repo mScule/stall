@@ -54,8 +54,7 @@ There are primary types and reference types. Primary types are ones that are own
 
 - None   - Marks the absense of value
 - Bool   - Boolean value
-- I64    - 64 bit signed integer value
-- F64    - 64 bit floating point value
+- Num    - Number
 - String - Value that holds text
 
 ##### Reference types
@@ -73,7 +72,7 @@ Funcs files consist of functions. Functions are defined by writing their name th
 ```
 say_hello {
     "Hello world!\n"
-    call_api "std/print"
+    call_sys "io/print"
     return
 }
 ```
@@ -82,7 +81,7 @@ Funtions has to have return at some point, otherwise Stall will crash :) Return 
 
 ### Referencing functions
 
-To refer certain function, you'll need to use the `get_func` operator, or get the function reference from variable. Then you call it with `call_func` operation. The route to desired function will be its path in the program folder from root.
+To refer certain function, you'll need to use the `get_const` operator, or get the function reference from variable. Then you call it with `call_func` operation. The route to desired function will be its path in the program folder from root.
 
 See the example below:
 
@@ -111,7 +110,7 @@ If you want to have boolean values, you can push them to stack with `true` and `
 
 ### Numeric values
 
-You can have two kinds of numeric literals, integers and floats. For these values you'll have to give type hints after the numeric literal, these are `i64` and `f64` You can use them like this: `10i64` `10_300.34f64`. (You can add underscores for readiblity)
+Num type uses [fraction package](https://docs.rs/fraction/latest/fraction/). Numbers are stored as fractions, but from the outside they can be handled as ints and floats. You can use them like this: `10` `10_300.34`. (You can add underscores for readiblity)
 
 ### Strings
 
@@ -126,14 +125,14 @@ If Pops or Pushes columns have * it means the value can be 0 or more.
 
 | Keyword                             | Description                                                   | Pops | Pushes |
 | ----------------------------------- | ------------------------------------------------------------- | ---- | ------ |
-| `get_func <func_path>`              | Gets function                                                 | 0    | 1      |
+| `get_const <const_path>`            | Gets function                                                 | 0    | 1      |
 | `new_scope`                         | Pushes new scope to the scope stack                           | 0    | 0      |
 | `end_scope`                         | Pops latest scope from the scope stack                        | 0    | 0      |
 | `new_var`                           | Pushes new variable to the current scope                      | 1    | 0      |
 | `set_var <offset_from_top> <index>` | Sets variable                                                 | 1    | 0      |
 | `get_var <offset_from_top> <index>` | Gets variable                                                 | 0    | 1      |
 | `call_func`                         | Attempts to call a function                                   | *    | *      |
-| `call_api`                          | Attempts to call a external api function                      | *    | *      |
+| `call_sys`                          | Attempts to call a system api                                 | *    | *      |
 | `return`                            | Pops function latest call from call stack                     | 0    | 0      |
 | `goto`                              | Sets the latest calls pc to given index                       | 0    | 0      |
 | `if_true_goto`                      | Does the same as goto if the value in the value stack is true | 1    | 0      |
@@ -149,8 +148,7 @@ If Pops or Pushes columns have * it means the value can be 0 or more.
 | `mul`                               | Multiplication                                                | 2    | 1      |
 | `div`                               | Division                                                      | 2    | 1      |
 | `concat`                            | Concatenates two strings                                      | 2    | 1      |
-| `to_i64`                            | Changes value to i64                                          | 1    | 1      |
-| `to_f64`                            | Changes value to f64                                          | 1    | 1      |
+| `to_num`                            | Changes value to num                                          | 1    | 1      |
 | `to_string`                         | Changes to string                                             | 1    | 1      |
 | `new_vec`                           | Create new empty vector                                       | 0    | 1      |
 | `push_to_vec`                       | Pushes value to vector                                        | 1    | 0      |

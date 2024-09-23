@@ -1,17 +1,16 @@
 main {
-    "\n"
-    2
-    5
-    15
-    sub
-    div
-    10
-    10
-    mul
-    add
-    to_string
-    concat
-    call_sys
-    "io/print"
+                "\n"
+                            2
+                                5
+                                15
+                            sub
+                        div
+                            10
+                            10
+                        mul
+                    add
+                to_string
+            concat
+        call_sys "io/print"
     return
 }
