@@ -22,6 +22,6 @@ main {
     concat
     concat
     
-    call_sys "io/print"
+    call_sys "/io/print"
     return
 }

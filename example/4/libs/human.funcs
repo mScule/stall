@@ -2,15 +2,15 @@ create_from_input {
     new_scope
     
     "Give me your name: "
-    call_sys "io/print"
+    call_sys "/io/print"
 
-    call_sys "io/read_line"
+    call_sys "/io/read_line"
     new_var
     
     "Give me your age: "
-    call_sys "io/print"
+    call_sys "/io/print"
 
-    call_sys "io/read_line"
+    call_sys "/io/read_line"
     new_var
     
     new_map

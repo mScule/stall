@@ -1,15 +1,14 @@
 main {
-            "\n"
-                    0.3 
-                    12
-                mul
-            to_string
-        concat
-
-        "0.3 * 12 = "
+    "\n"
+    0.3 
+    12
+    mul
+    to_string
     concat
 
-    call_sys "io/print"
+    "0.3 * 12 = "
+    concat
 
+    call_sys "/io/print"
     return
 }
