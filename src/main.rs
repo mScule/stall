@@ -14,7 +14,7 @@ fn main() {
     let api = api![
         ("/io/print", std_api::io::print),
         ("/io/read_line", std_api::io::read_line),
-        ("/debug/dump_vals", std_api::debug::val_dump),
+        ("/debug/val_dump", std_api::debug::val_dump),
     ];
 
     let mut vm = VM::new(&api);

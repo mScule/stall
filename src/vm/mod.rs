@@ -9,6 +9,7 @@ use crate::collections::stack::Stack;
 use call::Call;
 use op::Op;
 use std::collections::HashMap;
+use std::process::exit;
 use val::Val;
 
 pub enum Status {
@@ -21,7 +22,7 @@ pub type Funcs = HashMap<String, Val>;
 pub struct VM<'a> {
     api: &'a Api,
     funcs: Funcs,
-
+    fallback: Option<usize>,
     status: Status,
     scopes: Stack<Vec<Val>>,
     calls: Stack<Call>,
@@ -33,7 +34,7 @@ impl<'a> VM<'a> {
         Self {
             api,
             funcs: Funcs::new(),
-
+            fallback: None,
             status: Status::Run,
             scopes: Stack::from_vec(Vec::from([Vec::new()])),
             calls: Stack::from_vec(Vec::new()),
@@ -65,63 +66,76 @@ impl<'a> VM<'a> {
     }
     fn eval(&mut self) {
         let call = self.calls.peek_last_mut().expect("No call found");
-        let op = call.next().expect("Cannot access OP").clone();
+        let op = call.next().expect("Unexpected end of call").clone();
 
-        match op {
-            // Values
-            Op::GetConst(key) => self.op_get_func(key),
-            Op::GetLit(val) => self.op_get_const(val),
+        let val = self.vals.peek_last();
 
-            // Scopes
-            Op::NewScope => self.op_new_scope(),
-            Op::EndScope => self.op_end_scope(),
+        match (val, self.fallback) {
+            (Some(Val::Error(val)), Some(fallback)) => {
+                self.vals.push(Val::String(val.clone().id));
+                call.pc = fallback;
+                self.fallback = None;
+            }
+            (Some(Val::Error(val)), None) => {
+                println!("Unhandled \"{}\" error", val.id);
+                self.status = Status::End;
+            }
+            _ => match op {
+                // Values
+                Op::GetConst(key) => self.op_get_func(key),
+                Op::GetLit(val) => self.op_get_const(val),
 
-            // Variables
-            Op::NewVar => self.op_new_var(),
-            Op::SetVar(offset, index) => self.op_set_var(offset, index),
-            Op::GetVar(offset, index) => self.op_get_var(offset, index),
+                // Scopes
+                Op::NewScope => self.op_new_scope(),
+                Op::EndScope => self.op_end_scope(),
 
-            // Calling
-            Op::CallSys(key) => self.op_call_api(key),
-            Op::CallFunc => self.op_call_func(),
-            Op::ReturnCall => self.op_return_call(),
+                // Variables
+                Op::NewVar => self.op_new_var(),
+                Op::SetVar(offset, index) => self.op_set_var(offset, index),
+                Op::GetVar(offset, index) => self.op_get_var(offset, index),
 
-            // Jumping
-            Op::GoTo(index) => self.op_goto(index),
-            Op::IfTrueGoTo(index) => self.op_if_true_goto(index),
-            Op::IfFalseGoTo(index) => self.op_if_false_goto(index),
+                // Calling
+                Op::CallSys(key) => self.op_call_api(key),
+                Op::CallFunc => self.op_call_func(),
+                Op::ReturnCall => self.op_return_call(),
 
-            // Comparison
-            Op::Gte => self.op_gte(),
-            Op::Lte => self.op_lte(),
-            Op::Gt => self.op_gt(),
-            Op::Lt => self.op_lt(),
-            Op::Eq => self.op_eq(),
-            Op::Not => self.op_not(),
+                // Jumping
+                Op::GoTo(index) => self.op_goto(index),
+                Op::IfTrueGoTo(index) => self.op_if_true_goto(index),
+                Op::IfFalseGoTo(index) => self.op_if_false_goto(index),
 
-            // Counting
-            Op::Add => self.op_add(),
-            Op::Sub => self.op_sub(),
-            Op::Mul => self.op_mul(),
-            Op::Div => self.op_div(),
+                // Comparison
+                Op::Gte => self.op_gte(),
+                Op::Lte => self.op_lte(),
+                Op::Gt => self.op_gt(),
+                Op::Lt => self.op_lt(),
+                Op::Eq => self.op_eq(),
+                Op::Not => self.op_not(),
 
-            // Strings
-            Op::Concat => self.op_concat(),
+                // Counting
+                Op::Add => self.op_add(),
+                Op::Sub => self.op_sub(),
+                Op::Mul => self.op_mul(),
+                Op::Div => self.op_div(),
 
-            // Casting
-            Op::ToNum => self.op_to_num(),
-            Op::ToString => self.op_to_string(),
+                // Strings
+                Op::Concat => self.op_concat(),
 
-            // Vecs
-            Op::NewVec => self.op_new_vec(),
-            Op::PushToVec => self.op_push_to_vec(),
-            Op::SetVecVal => self.op_set_vec_val(),
-            Op::GetVecVal => self.op_get_vec_val(),
+                // Casting
+                Op::ToNum => self.op_to_num(),
+                Op::ToString => self.op_to_string(),
 
-            // Maps
-            Op::NewMap => self.op_new_map(),
-            Op::SetMapVal => self.op_set_map_val(),
-            Op::GetMapVal => self.op_get_map_val(),
+                // Vecs
+                Op::NewVec => self.op_new_vec(),
+                Op::PushToVec => self.op_push_to_vec(),
+                Op::SetVecVal => self.op_set_vec_val(),
+                Op::GetVecVal => self.op_get_vec_val(),
+
+                // Maps
+                Op::NewMap => self.op_new_map(),
+                Op::SetMapVal => self.op_set_map_val(),
+                Op::GetMapVal => self.op_get_map_val(),
+            },
         }
     }
 }

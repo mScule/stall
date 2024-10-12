@@ -1,32 +1,32 @@
-use crate::vm::{val::Val, VM};
+use crate::vm::{val::{Error, Val}, VM};
 
 impl<'a> VM<'a> {
     #[inline]
     pub fn op_gte(&mut self) {
         match (self.vals.pop(), self.vals.pop()) {
             (Some(Val::Num(a)), Some(Val::Num(b))) => self.vals.push(Val::Bool(a >= b)),
-            _ => panic!("Panic: Gte"),
+            _ => self.vals.push(Val::Error(Error::from_str("gte"))),
         }
     }
     #[inline]
     pub fn op_lte(&mut self) {
         match (self.vals.pop(), self.vals.pop()) {
             (Some(Val::Num(a)), Some(Val::Num(b))) => self.vals.push(Val::Bool(a <= b)),
-            _ => panic!("Panic: Lte"),
+            _ => self.vals.push(Val::Error(Error::from_str("lte"))),
         }
     }
     #[inline]
     pub fn op_gt(&mut self) {
         match (self.vals.pop(), self.vals.pop()) {
             (Some(Val::Num(a)), Some(Val::Num(b))) => self.vals.push(Val::Bool(a > b)),
-            _ => panic!("Panic: Gt"),
+            _ => self.vals.push(Val::Error(Error::from_str("gt"))),
         }
     }
     #[inline]
     pub fn op_lt(&mut self) {
         match (self.vals.pop(), self.vals.pop()) {
             (Some(Val::Num(a)), Some(Val::Num(b))) => self.vals.push(Val::Bool(a < b)),
-            _ => panic!("Panic: Lt"),
+            _ => self.vals.push(Val::Error(Error::from_str("lt"))),
         }
     }
     #[inline]
@@ -34,7 +34,7 @@ impl<'a> VM<'a> {
         match (self.vals.pop(), self.vals.pop()) {
             (Some(val), Some(Val::None)) | (Some(Val::None), Some(val)) => match val {
                 Val::None => self.vals.push(Val::Bool(true)),
-                _ => self.vals.push(Val::Bool(false)),
+                _ => self.vals.push(Val::Error(Error::from_str("eq"))),
             },
             (Some(Val::Bool(a)), Some(Val::Bool(b))) => self.vals.push(Val::Bool(a == b)),
             (Some(Val::Num(a)), Some(Val::Num(b))) => self.vals.push(Val::Bool(a == b)),
@@ -48,14 +48,14 @@ impl<'a> VM<'a> {
             (Some(Val::Func(a)), Some(Val::Func(b))) => {
                 self.vals.push(Val::Bool(a.as_ptr() == b.as_ptr()))
             }
-            _ => panic!("Panic: Eq"),
+            _ => self.vals.push(Val::Error(Error::from_str("eq"))),
         }
     }
     #[inline]
     pub fn op_not(&mut self) {
         match self.vals.pop() {
             Some(Val::Bool(val)) => self.vals.push(Val::Bool(!val)),
-            _ => panic!("Panic: Not"),
+            _ => self.vals.push(Val::Error(Error::from_str("not"))),
         }
     }
 }

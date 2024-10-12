@@ -1,6 +1,9 @@
 use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
-use crate::vm::{val::Val, VM};
+use crate::vm::{
+    val::{Error, Val},
+    VM,
+};
 
 impl<'a> VM<'a> {
     #[inline]
@@ -16,7 +19,7 @@ impl<'a> VM<'a> {
                 let mut map = map_ref_clone.borrow_mut();
                 map.insert(key, val);
             }
-            _ => panic!("Panic: GetMapVal"),
+            _ => self.vals.push(Val::Error(Error::from_str("set_map_val"))),
         }
     }
     #[inline]
@@ -27,7 +30,7 @@ impl<'a> VM<'a> {
                 let map = map_ref_clone.borrow_mut();
                 self.vals.push(map[&key].clone());
             }
-            _ => panic!("Panic: GetMapVal"),
+            _ => self.vals.push(Val::Error(Error::from_str("get_map_val"))),
         }
     }
 }

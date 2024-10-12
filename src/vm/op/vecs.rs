@@ -1,4 +1,7 @@
-use crate::vm::{val::Val, VM};
+use crate::vm::{
+    val::{Error, Val},
+    VM,
+};
 use fraction::ToPrimitive;
 use std::{cell::RefCell, rc::Rc};
 
@@ -15,7 +18,7 @@ impl<'a> VM<'a> {
                 let mut vec = vec_ref_clone.borrow_mut();
                 vec.push(val);
             }
-            _ => panic!("Panic: PushToVec"),
+            _ => self.vals.push(Val::Error(Error::from_str("push_to_list"))),
         }
     }
     #[inline]
@@ -27,10 +30,10 @@ impl<'a> VM<'a> {
 
                 match index.to_usize() {
                     Some(index) => vec[index] = val,
-                    _ => panic!("Panic: cannot convert value to usize"),
+                    _ => self.vals.push(Val::Error(Error::from_str("set_list_val"))),
                 }
             }
-            _ => panic!("Panic: SetIndex"),
+            _ => self.vals.push(Val::Error(Error::from_str("set_list_val"))),
         }
     }
     #[inline]
@@ -39,11 +42,11 @@ impl<'a> VM<'a> {
             (Some(Val::Vec(vec_ref)), Some(Val::Num(index))) => match index.to_usize() {
                 Some(index) => match vec_ref.borrow().get(index as usize) {
                     Some(val) => self.vals.push(val.clone()),
-                    _ => panic!("Panic: GetIndex - Bad index"),
+                    _ => self.vals.push(Val::Error(Error::from_str("get_list_val"))),
                 },
-                _ => panic!("Panic: Cannot convert value to usize"),
+                _ => self.vals.push(Val::Error(Error::from_str("get_list_val"))),
             },
-            _ => panic!("Panic: GetIndex"),
+            _ => self.vals.push(Val::Error(Error::from_str("get_list_val"))),
         }
     }
 }

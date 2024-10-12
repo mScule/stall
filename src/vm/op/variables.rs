@@ -1,4 +1,7 @@
-use crate::vm::VM;
+use crate::vm::{
+    val::{Error, Val},
+    VM,
+};
 
 impl<'a> VM<'a> {
     #[inline]
@@ -8,7 +11,7 @@ impl<'a> VM<'a> {
                 let scope = self.scopes.peek_last_mut().unwrap();
                 scope.push(val);
             }
-            _ => panic!("Panic: NewVar"),
+            _ => self.vals.push(Val::Error(Error::from_str("new_var"))),
         }
     }
     #[inline]
@@ -22,7 +25,7 @@ impl<'a> VM<'a> {
 
                 scope[index] = val;
             }
-            _ => panic!("Panic: SetVar"),
+            _ => self.vals.push(Val::Error(Error::from_str("set_var"))),
         }
     }
     #[inline]
@@ -30,9 +33,9 @@ impl<'a> VM<'a> {
         match self.scopes.peek_mut(self.scopes.len() - 1 - offset) {
             Some(vars) => match vars.get(index) {
                 Some(val) => self.vals.push(val.clone()),
-                _ => panic!("Panic: Get var - Bad index"),
+                _ => self.vals.push(Val::Error(Error::from_str("get_var"))),
             },
-            _ => panic!("Panic: Get var - Bad offset"),
+            _ => self.vals.push(Val::Error(Error::from_str("get_var"))),
         }
     }
 }

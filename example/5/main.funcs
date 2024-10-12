@@ -1,0 +1,11 @@
+main {
+    "12"
+    to_num
+    call_sys "/debug/val_dump"
+    call_sys "/io/print"
+
+    "\n"
+    call_sys "/io/print"
+
+    return
+}

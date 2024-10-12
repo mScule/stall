@@ -1,4 +1,4 @@
-use crate::vm::{val::Val, VM};
+use crate::vm::{val::{Error, Val}, VM};
 
 impl<'a> VM<'a> {
     #[inline]
@@ -8,7 +8,7 @@ impl<'a> VM<'a> {
                 a.push_str(&b);
                 self.vals.push(Val::String(a));
             }
-            _ => panic!("Panic: Concat"),
+            _ => self.vals.push(Val::Error(Error::from_str("concat"))),
         }
     }
 }
