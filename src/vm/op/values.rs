@@ -9,4 +9,8 @@ impl<'a> VM<'a> {
     pub fn op_get_const(&mut self, val: Val) {
         self.vals.push(val.clone());
     }
+    #[inline]
+    pub fn op_discard(&mut self) {
+        self.vals.pop();
+    }
 }

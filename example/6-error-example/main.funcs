@@ -1,0 +1,16 @@
+throws {
+    0
+    0
+    div
+    return
+}
+
+main {
+    get_const "/main.funcs/throws"
+    call_func
+    catch
+
+    call_sys "/debug/val_dump"
+    call_sys "/io/print"
+    return
+}

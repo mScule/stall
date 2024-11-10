@@ -39,7 +39,7 @@ impl<'a> VM<'a> {
             (Some(Val::Bool(a)), Some(Val::Bool(b))) => self.vals.push(Val::Bool(a == b)),
             (Some(Val::Num(a)), Some(Val::Num(b))) => self.vals.push(Val::Bool(a == b)),
             (Some(Val::String(a)), Some(Val::String(b))) => self.vals.push(Val::Bool(a.eq(&b))),
-            (Some(Val::Vec(a)), Some(Val::Vec(b))) => {
+            (Some(Val::List(a)), Some(Val::List(b))) => {
                 self.vals.push(Val::Bool(a.as_ptr() == b.as_ptr()))
             }
             (Some(Val::Map(a)), Some(Val::Map(b))) => {

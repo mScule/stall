@@ -123,6 +123,10 @@ impl<'a> Parser<'a> {
                     "new_map" => Op::NewMap,
                     "get_map_val" => Op::GetMapVal,
                     "set_map_val" => Op::SetMapVal,
+
+                    "catch" => Op::Catch,
+
+                    "discard" => Op::Discard,
                     _ => panic!("Unsupported op"),
                 },
                 Some(Token::Number(num)) => match Num::from_str(&num) {

@@ -9,7 +9,6 @@ use crate::collections::stack::Stack;
 use call::Call;
 use op::Op;
 use std::collections::HashMap;
-use std::process::exit;
 use val::Val;
 
 pub enum Status {
@@ -22,7 +21,6 @@ pub type Funcs = HashMap<String, Val>;
 pub struct VM<'a> {
     api: &'a Api,
     funcs: Funcs,
-    fallback: Option<usize>,
     status: Status,
     scopes: Stack<Vec<Val>>,
     calls: Stack<Call>,
@@ -34,7 +32,6 @@ impl<'a> VM<'a> {
         Self {
             api,
             funcs: Funcs::new(),
-            fallback: None,
             status: Status::Run,
             scopes: Stack::from_vec(Vec::from([Vec::new()])),
             calls: Stack::from_vec(Vec::new()),
@@ -70,20 +67,20 @@ impl<'a> VM<'a> {
 
         let val = self.vals.peek_last();
 
-        match (val, self.fallback) {
-            (Some(Val::Error(val)), Some(fallback)) => {
-                self.vals.push(Val::String(val.clone().id));
-                call.pc = fallback;
-                self.fallback = None;
-            }
-            (Some(Val::Error(val)), None) => {
-                println!("Unhandled \"{}\" error", val.id);
-                self.status = Status::End;
-            }
+        match val {
+            // Handle Error
+            Some(Val::Error(val)) => match op {
+                Op::Catch => self.op_catch(),
+                _ => {
+                    println!("Uncatched error: \"{}\"", val.id);
+                    self.status = Status::End;
+                }
+            },
             _ => match op {
                 // Values
                 Op::GetConst(key) => self.op_get_func(key),
                 Op::GetLit(val) => self.op_get_const(val),
+                Op::Discard => self.op_discard(),
 
                 // Scopes
                 Op::NewScope => self.op_new_scope(),
@@ -125,7 +122,7 @@ impl<'a> VM<'a> {
                 Op::ToNum => self.op_to_num(),
                 Op::ToString => self.op_to_string(),
 
-                // Vecs
+                // Lists
                 Op::NewVec => self.op_new_vec(),
                 Op::PushToVec => self.op_push_to_vec(),
                 Op::SetVecVal => self.op_set_vec_val(),
@@ -135,6 +132,9 @@ impl<'a> VM<'a> {
                 Op::NewMap => self.op_new_map(),
                 Op::SetMapVal => self.op_set_map_val(),
                 Op::GetMapVal => self.op_get_map_val(),
+
+                // Skip catch
+                Op::Catch => self.op_catch(),
             },
         }
     }

@@ -9,6 +9,7 @@ pub mod strings;
 pub mod values;
 pub mod variables;
 pub mod vecs;
+pub mod errors;
 
 use super::val::Val;
 
@@ -17,6 +18,7 @@ pub enum Op {
     // Values
     GetConst(String),
     GetLit(Val),
+    Discard,
 
     // Scopes
     NewScope,
@@ -68,4 +70,7 @@ pub enum Op {
     NewMap,
     GetMapVal,
     SetMapVal,
+
+    // Errors
+    Catch,
 }
